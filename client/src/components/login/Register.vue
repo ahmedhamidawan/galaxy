@@ -14,8 +14,8 @@
                             </b-card-header>
                             <b-collapse visible id="accordion-custos" role="tabpanel" accordion="registration_acc">
                                 <b-card-body>
-                                    Create a Galaxy account using an institutional account (e.g.:Google/JHU). This
-                                    will redirect you to your institutional login.
+                                    Create a Galaxy account using an institutional account (e.g.:Google/JHU). This will
+                                    redirect you to your institutional login.
                                     <external-login :login_page="true" />
                                 </b-card-body>
                             </b-collapse>
@@ -38,10 +38,10 @@
                                     <b-form-group label="Public name">
                                         <b-form-input name="username" type="text" v-model="username" />
                                         <b-form-text
-                                            >Your public name is an identifier that will be used to generate addresses for
-                                            information you share publicly. Public names must be at least three characters in
-                                            length and contain only lower-case letters, numbers, dots, underscores, and dashes
-                                            ('.', '_', '-').</b-form-text
+                                            >Your public name is an identifier that will be used to generate addresses
+                                            for information you share publicly. Public names must be at least three
+                                            characters in length and contain only lower-case letters, numbers, dots,
+                                            underscores, and dashes ('.', '_', '-').</b-form-text
                                         >
                                     </b-form-group>
                                     <b-form-group
@@ -55,9 +55,7 @@
                         </span>
                         <!-- Non OIDC (Normal) login-->
                         <span v-else>
-                            <b-card-header>
-                                Create a Galaxy account
-                            </b-card-header>
+                            <b-card-header> Create a Galaxy account </b-card-header>
                             <b-card-body>
                                 <b-form-group label="Email Address">
                                     <b-form-input name="email" type="text" v-model="email" />
@@ -72,9 +70,9 @@
                                     <b-form-input name="username" type="text" v-model="username" />
                                     <b-form-text
                                         >Your public name is an identifier that will be used to generate addresses for
-                                        information you share publicly. Public names must be at least three characters in
-                                        length and contain only lower-case letters, numbers, dots, underscores, and dashes
-                                        ('.', '_', '-').</b-form-text
+                                        information you share publicly. Public names must be at least three characters
+                                        in length and contain only lower-case letters, numbers, dots, underscores, and
+                                        dashes ('.', '_', '-').</b-form-text
                                     >
                                 </b-form-group>
                                 <b-form-group

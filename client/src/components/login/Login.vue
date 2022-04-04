@@ -40,7 +40,7 @@
                                     >
                                 </span>
                                 <span v-else-if="auto_redirect">
-                                    You have been auto-redirected to OIDC authentication and login. Please contact an 
+                                    You have been auto-redirected to OIDC authentication and login. Please contact an
                                     administrator for assistance on non OIDC/institutional registration.
                                 </span>
                                 <span v-else>
