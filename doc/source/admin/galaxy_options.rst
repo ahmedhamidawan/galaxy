@@ -3605,16 +3605,6 @@
 :Type: bool
 
 
-~~~~~~~~~~~~~~~~~~~~~~
-``oidc_auto_redirect``
-~~~~~~~~~~~~~~~~~~~~~~
-
-:Description:
-    Enables and disables auto-redirect to (OIDC) login.
-:Default: ``false``
-:Type: bool
-
-
 ~~~~~~~~~~~~~~~~~~~~
 ``oidc_config_file``
 ~~~~~~~~~~~~~~~~~~~~
