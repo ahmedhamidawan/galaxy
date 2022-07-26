@@ -139,6 +139,20 @@ class CanvasManager {
             while (zoomLevels[zoomIndex] < zoomScale) {
                 zoomIndex++;
             }
+            // let parentRect = this.cv.parentNode.getBoundingClientRect();
+            // let rect = this.cv.getBoundingClientRect();
+            // var xPercent = ((e.pageX - rect.left) / rect.width).toFixed(2);
+            // var yPercent = ((e.pageY - rect.top) / rect.height).toFixed(2);
+            let xPercent = (((e.pageX - this.cv.position().left) / this.cv.width()).toFixed(2)) * 100;
+            let yPercent = (((e.pageY - this.cv.position().top) / this.cv.height()).toFixed(2)) * 100;
+            
+            {
+            // var left = Math.round(e.pageX - parentRect.left - (xPercent * (rect.width * zoomScale / this.canvasZoom)));
+            // var top = Math.round(e.pageY - parentRect.top - (yPercent * (rect.height * zoomScale / this.canvasZoom)));        
+            // var left = Math.round(e.pageX - parentRect.left - (xPercent * (this.cv.width() * zoomScale / this.canvasZoom)));
+            // var top = Math.round(e.pageY - parentRect.top - (yPercent * (this.cv.height() * zoomScale / this.canvasZoom)));
+            }
+            
             // Tried to use setZoom() function but it requires zoomLevel as input
             // i.e.: won't allow for smooth zooming (will only allow 15 levels
             // of zoom like in ZoomControl)
@@ -146,7 +160,9 @@ class CanvasManager {
             this.zoomLevel = zoomIndex;
             this.canvasZoom = zoomScale;
             // Set CSS transform to appropriate zoom level
-            this.cv.css("transform-origin", "top left");
+            // this.cv.css("transform", 'matrix(' + zoomScale + ',0,0,' + zoomScale + ',' + left + ',' + top + ')');
+            // this.cv.css("transform-origin", "50% 50%");
+            this.cv.css("transform-origin", `${xPercent}% ${yPercent}%`);
             this.cv.css("transform", "scale(" + this.canvasZoom + ")");
             // Modify canvas size to account for scale
             this.cv.css("width", `${100 / this.canvasZoom}%`);
