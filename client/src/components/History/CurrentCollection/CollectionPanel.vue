@@ -4,6 +4,7 @@
     <CollectionElementsProvider
         v-if="dsc"
         :id="dsc.id"
+        ref="provider"
         :key="dsc.id"
         v-slot="{ loading, result: payload }"
         :contents-url="contentsUrl"
@@ -28,6 +29,7 @@
                                     :name="item.element_identifier"
                                     :expand-dataset="isExpanded(item)"
                                     :is-dataset="item.element_type == 'hda'"
+                                    :filterable="filterable"
                                     @update:expand-dataset="setExpanded(item, $event)"
                                     @view-collection="onViewSubCollection" />
                             </template>
@@ -63,6 +65,7 @@ export default {
         history: { type: Object, required: true },
         selectedCollections: { type: Array, required: true },
         showControls: { type: Boolean, default: true },
+        filterable: { type: Boolean, default: false },
     },
     data() {
         return {
@@ -73,6 +76,9 @@ export default {
         dsc() {
             const arr = this.selectedCollections;
             return arr[arr.length - 1];
+        },
+        jobState() {
+            return this.dsc["job_state_summary"];
         },
         isRoot() {
             return this.dsc == this.rootCollection;
@@ -90,6 +96,12 @@ export default {
                 // Send up event closing out selected collection on history change.
                 this.$emit("update:selected-collections", []);
             }
+        },
+        jobState: {
+            handler() {
+                this.$refs.provider.load();
+            },
+            deep: true,
         },
     },
     methods: {

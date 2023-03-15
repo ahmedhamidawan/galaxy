@@ -37,10 +37,7 @@ from galaxy.exceptions import (
     RequestParameterInvalidException,
 )
 from galaxy.model.scoped_session import galaxy_scoped_session
-from galaxy.schema.schema import (
-    LibraryFolderContentsIndexQueryPayload,
-    LibraryFolderContentsIndexSortByEnum,
-)
+from galaxy.schema.schema import LibraryFolderContentsIndexQueryPayload
 from galaxy.security import RBACAgent
 from galaxy.security.idencoding import IdEncodingHelper
 
@@ -57,17 +54,17 @@ class SecurityParams:
 
 
 LDDA_SORT_COLUMN_MAP = {
-    LibraryFolderContentsIndexSortByEnum.name: lambda ldda, dataset: ldda.name,
-    LibraryFolderContentsIndexSortByEnum.description: lambda ldda, dataset: ldda.message,
-    LibraryFolderContentsIndexSortByEnum.type: lambda ldda, dataset: ldda.extension,
-    LibraryFolderContentsIndexSortByEnum.size: lambda ldda, dataset: dataset.file_size,
-    LibraryFolderContentsIndexSortByEnum.update_time: lambda ldda, dataset: ldda.update_time,
+    "name": lambda ldda, dataset: ldda.name,
+    "description": lambda ldda, dataset: ldda.message,
+    "type": lambda ldda, dataset: ldda.extension,
+    "size": lambda ldda, dataset: dataset.file_size,
+    "update_time": lambda ldda, dataset: ldda.update_time,
 }
 
 FOLDER_SORT_COLUMN_MAP = {
-    LibraryFolderContentsIndexSortByEnum.name: lambda folder: folder.name,
-    LibraryFolderContentsIndexSortByEnum.description: lambda folder: folder.description,
-    LibraryFolderContentsIndexSortByEnum.update_time: lambda folder: folder.update_time,
+    "name": lambda folder: folder.name,
+    "description": lambda folder: folder.description,
+    "update_time": lambda folder: folder.update_time,
 }
 
 
@@ -405,7 +402,9 @@ class FolderManager:
         if payload.order_by in FOLDER_SORT_COLUMN_MAP:
             sort_column = FOLDER_SORT_COLUMN_MAP[payload.order_by](model.LibraryFolder)
             sub_folders_query = sub_folders_query.order_by(sort_column.desc() if payload.sort_desc else sort_column)
-        if limit is not None:
+        else:  # Sort by name alphabetically by default
+            sub_folders_query = sub_folders_query.order_by(model.LibraryFolder.name)
+        if limit is not None and limit > 0:
             sub_folders_query = sub_folders_query.limit(limit)
         if offset is not None:
             sub_folders_query = sub_folders_query.offset(offset)
@@ -415,7 +414,7 @@ class FolderManager:
         # Update pagination
         num_folders_returned = len(folders)
         num_folders_skipped = total_sub_folders - num_folders_returned
-        if limit:
+        if limit is not None and limit > 0:
             limit -= num_folders_returned
         if offset:
             offset -= num_folders_skipped
@@ -423,7 +422,7 @@ class FolderManager:
 
         datasets_query = self._get_contained_datasets_query(sa_session, folder, security_params, payload)
         total_datasets = datasets_query.count()
-        if limit is not None:
+        if limit is not None and limit > 0:
             datasets_query = datasets_query.limit(limit)
         if offset is not None:
             datasets_query = datasets_query.offset(offset)

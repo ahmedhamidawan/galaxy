@@ -5,8 +5,14 @@ import copy
 import json
 import logging
 import re
+from typing import (
+    List,
+    Optional,
+    Union,
+)
 
 from fastapi import (
+    Body,
     Path,
     Response,
     status,
@@ -17,6 +23,7 @@ from sqlalchemy import (
     or_,
     true,
 )
+from typing_extensions import Literal
 
 from galaxy import (
     exceptions,
@@ -32,9 +39,11 @@ from galaxy.managers.context import ProvidesUserContext
 from galaxy.model import (
     User,
     UserAddress,
+    UserQuotaUsage,
 )
 from galaxy.schema import APIKeyModel
 from galaxy.schema.fields import DecodedDatabaseIdField
+from galaxy.schema.schema import UserBeaconSetting
 from galaxy.security.validate_user_input import (
     validate_email,
     validate_password,
@@ -69,13 +78,23 @@ log = logging.getLogger(__name__)
 
 router = Router(tags=["users"])
 
+FlexibleUserIdType = Union[DecodedDatabaseIdField, Literal["current"]]
 UserIdPathParam: DecodedDatabaseIdField = Path(..., title="User ID", description="The ID of the user to get.")
 APIKeyPathParam: str = Path(..., title="API Key", description="The API key of the user.")
+FlexibleUserIdPathParam: FlexibleUserIdType = Path(
+    ..., title="User ID", description="The ID of the user to get or 'current'."
+)
+QuotaSourceLabelPathParam: str = Path(
+    ...,
+    title="Quota Source Label",
+    description="The label corresponding to the quota source to fetch usage information about.",
+)
 
 
 @router.cbv
-class FastAPIHistories:
+class FastAPIUsers:
     service: UsersService = depends(UsersService)
+    user_serializer: users.UserSerializer = depends(users.UserSerializer)
 
     @router.put(
         "/api/users/recalculate_disk_usage",
@@ -137,6 +156,82 @@ class FastAPIHistories:
     ):
         self.service.delete_api_key(trans, user_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.get(
+        "/api/users/{user_id}/usage",
+        name="get_user_usage",
+        summary="Return the user's quota usage summary broken down by quota source",
+    )
+    def usage(
+        self,
+        trans: ProvidesUserContext = DependsOnTrans,
+        user_id: FlexibleUserIdType = FlexibleUserIdPathParam,
+    ) -> List[UserQuotaUsage]:
+        user = get_user_full(trans, user_id, False)
+        if user:
+            rval = self.user_serializer.serialize_disk_usage(user)
+            return rval
+        else:
+            return []
+
+    @router.get(
+        "/api/users/{user_id}/usage/{label}",
+        name="get_user_usage_for_label",
+        summary="Return the user's quota usage summary for a given quota source label",
+    )
+    def usage_for(
+        self,
+        trans: ProvidesUserContext = DependsOnTrans,
+        user_id: FlexibleUserIdType = FlexibleUserIdPathParam,
+        label: str = QuotaSourceLabelPathParam,
+    ) -> Optional[UserQuotaUsage]:
+        user = get_user_full(trans, user_id, False)
+        effective_label: Optional[str] = label
+        if label == "__null__":
+            effective_label = None
+        if user:
+            rval = self.user_serializer.serialize_disk_usage_for(user, effective_label)
+            return rval
+        else:
+            return None
+
+    @router.get(
+        "/api/users/{user_id}/beacon",
+        summary="Returns information about beacon share settings",
+    )
+    def get_beacon(
+        self,
+        trans: ProvidesUserContext = DependsOnTrans,
+        user_id: DecodedDatabaseIdField = UserIdPathParam,
+    ) -> UserBeaconSetting:
+        """
+        **Warning**: This endpoint is experimental and might change or disappear in future versions.
+        """
+        user = self.service._get_user(trans, user_id)
+
+        enabled = user.preferences["beacon_enabled"] if "beacon_enabled" in user.preferences else False
+
+        return UserBeaconSetting(enabled=enabled)
+
+    @router.post(
+        "/api/users/{user_id}/beacon",
+        summary="Changes beacon setting",
+    )
+    def set_beacon(
+        self,
+        trans: ProvidesUserContext = DependsOnTrans,
+        user_id: DecodedDatabaseIdField = UserIdPathParam,
+        payload: UserBeaconSetting = Body(...),
+    ) -> UserBeaconSetting:
+        """
+        **Warning**: This endpoint is experimental and might change or disappear in future versions.
+        """
+        user = self.service._get_user(trans, user_id)
+
+        user.preferences["beacon_enabled"] = payload.enabled
+        trans.sa_session.flush()
+
+        return payload
 
 
 class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController, UsesFormDefinitionsMixin):
@@ -246,34 +341,7 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
         """Return referenced user or None if anonymous user is referenced."""
         deleted = kwd.get("deleted", "False")
         deleted = util.string_as_bool(deleted)
-        try:
-            # user is requesting data about themselves
-            if user_id == "current":
-                # ...and is anonymous - return usage and quota (if any)
-                if not trans.user:
-                    return None
-
-                # ...and is logged in - return full
-                else:
-                    user = trans.user
-            else:
-                return managers_base.get_object(
-                    trans,
-                    user_id,
-                    "User",
-                    deleted=deleted,
-                )
-            # check that the user is requesting themselves (and they aren't del'd) unless admin
-            if not trans.user_is_admin:
-                if trans.user != user or user.deleted:
-                    raise exceptions.InsufficientPermissionsException(
-                        "You are not allowed to perform action on that user", id=user_id
-                    )
-            return user
-        except exceptions.MessageException:
-            raise
-        except Exception:
-            raise exceptions.RequestParameterInvalidException("Invalid user id specified", id=user_id)
+        return get_user_full(trans, user_id, deleted)
 
     @expose_api
     def create(self, trans: GalaxyWebTransaction, payload: dict, **kwd):
@@ -374,7 +442,7 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
         if not trans.user and not trans.history:
             # Can't return info about this user, may not have a history yet.
             return {}
-        usage = trans.app.quota_agent.get_usage(trans)
+        usage = trans.app.quota_agent.get_usage(trans, history=trans.history)
         percent = trans.app.quota_agent.get_percent(trans=trans, usage=usage)
         return {
             "total_disk_usage": int(usage),
@@ -471,7 +539,7 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
                         "type": "text",
                         "label": "Public name",
                         "value": username,
-                        "help": 'Your public name is an identifier that will be used to generate addresses for information you share publicly. Public names must be at least three characters in length and contain only lower-case letters, numbers, and the "-" character.',
+                        "help": 'Your public name is an identifier that will be used to generate addresses for information you share publicly. Public names must be at least three characters in length and contain only lower-case letters, numbers, dots, underscores, and dashes (".", "_", "-").',
                     }
                 )
             info_form_models = self.get_all_forms(
@@ -547,7 +615,7 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
                         label="Public name:",
                         type="text",
                         value=username,
-                        help='Your public name provides a means of identifying you publicly within this tool shed. Public names must be at least three characters in length and contain only lower-case letters, numbers, and the "-" character. You cannot change your public name after you have created a repository in this tool shed.',
+                        help='Your public name provides a means of identifying you publicly within this tool shed. Public names must be at least three characters in length and contain only lower-case letters, numbers, dots, underscores, and dashes (".", "_", "-"). You cannot change your public name after you have created a repository in this tool shed.',
                     )
                 )
         user_info["inputs"] = inputs
@@ -746,6 +814,22 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
             raise exceptions.ObjectAttributeInvalidException(
                 f"This type is not supported. Given object_type: {object_type}"
             )
+
+    @expose_api
+    def set_theme(self, trans, id: str, theme: str, payload=None, **kwd) -> str:
+        """Sets the user's theme choice.
+        PUT /api/users/{id}/theme/{theme}
+
+        :param id: the encoded id of the user
+        :type  id: str
+        :param theme: the theme identifier/name that the user has selected as preference
+        :type  theme: str
+        """
+        payload = payload or {}
+        user = self._get_user(trans, id)
+        user.preferences["theme"] = theme
+        trans.sa_session.flush()
+        return theme
 
     @expose_api
     def get_password(self, trans, id, payload=None, **kwd):
@@ -1065,3 +1149,32 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
         if user != trans.user and not trans.user_is_admin:
             raise exceptions.InsufficientPermissionsException("Access denied.")
         return user
+
+
+def get_user_full(trans: ProvidesUserContext, user_id: Union[FlexibleUserIdType, str], deleted: bool) -> Optional[User]:
+    try:
+        # user is requesting data about themselves
+        if user_id == "current":
+            # ...and is anonymous - return usage and quota (if any)
+            if not trans.user:
+                return None
+
+            # ...and is logged in - return full
+            else:
+                user = trans.user
+        else:
+            user = managers_base.get_object(
+                trans,
+                user_id,
+                "User",
+                deleted=deleted,
+            )
+        # check that the user is requesting themselves (and they aren't del'd) unless admin
+        if not trans.user_is_admin:
+            if trans.user != user or user.deleted:
+                raise exceptions.RequestParameterInvalidException("Invalid user id specified", id=user_id)
+        return user
+    except exceptions.MessageException:
+        raise
+    except Exception:
+        raise exceptions.RequestParameterInvalidException("Invalid user id specified", id=user_id)

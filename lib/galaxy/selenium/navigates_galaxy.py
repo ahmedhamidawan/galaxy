@@ -658,6 +658,10 @@ class NavigatesGalaxy(HasDriver):
         center_element = self.driver.find_element(By.CSS_SELECTOR, "#center")
         action_chains.move_to_element(center_element).click().perform()
 
+    def hover_over(self, target):
+        action_chains = self.action_chains()
+        action_chains.move_to_element(target).perform()
+
     def perform_upload(self, test_path, **kwd):
         self._perform_upload(test_path=test_path, **kwd)
 
@@ -878,7 +882,6 @@ class NavigatesGalaxy(HasDriver):
         rule_builder = self.components.rule_builder
         rule_builder.menu_button_column.wait_for_and_click()
         with self.rule_builder_rule_editor("add-column-regex") as editor_element:
-
             column_elem = editor_element.find_element(By.CSS_SELECTOR, ".rule-column-selector")
             self.select2_set_value(column_elem, column_label)
 
@@ -899,7 +902,6 @@ class NavigatesGalaxy(HasDriver):
         rule_builder = self.components.rule_builder
         rule_builder.menu_button_column.wait_for_and_click()
         with self.rule_builder_rule_editor("add-column-regex") as editor_element:
-
             column_elem = editor_element.find_element(By.CSS_SELECTOR, ".rule-column-selector")
             self.select2_set_value(column_elem, column_label)
 
@@ -1052,6 +1054,11 @@ class NavigatesGalaxy(HasDriver):
         self.home()
         self.click_masthead_user()
         self.components.masthead.histories.wait_for_and_click()
+
+    def navigate_to_histories_shared_with_me_page(self):
+        self.home()
+        self.click_masthead_user()
+        self.components.masthead.histories_shared_with_me.wait_for_and_click()
 
     def navigate_to_user_preferences(self):
         self.home()
@@ -1305,7 +1312,6 @@ class NavigatesGalaxy(HasDriver):
         self.wait_for_and_click_selector("input[name='make_accessible_and_publish']")
 
     def tagging_add(self, tags, auto_closes=True, parent_selector=""):
-
         for i, tag in enumerate(tags):
             if auto_closes or i == 0:
                 tag_area = f"{parent_selector}.tags-input input[type='text']"
@@ -1393,7 +1399,7 @@ class NavigatesGalaxy(HasDriver):
 
     def tool_parameter_edit_rules(self):
         rules_div_element = self.tool_parameter_div("rules")
-        edit_button_element = rules_div_element.find_element(By.CSS_SELECTOR, "i.fa-edit")
+        edit_button_element = rules_div_element.find_element(By.CSS_SELECTOR, ".form-rules-edit button")
         edit_button_element.click()
 
     def tool_set_value(self, expanded_parameter_id, value, expected_type=None):
@@ -1515,21 +1521,17 @@ class NavigatesGalaxy(HasDriver):
 
     @edit_details
     def history_panel_add_tags(self, tags):
-        tag_icon = self.components.history_panel.tag_icon
-        tag_area = self.components.history_panel.tag_area
-        tag_area_input = self.components.history_panel.tag_area_input
+        tag_area_button = self.components.history_panel.tag_area_button
 
-        # if the tag editor is not present but the tag_icon is, then click it
-        if not tag_icon.is_absent and (tag_area.is_absent or not tag_area.is_displayed):
-            tag_icon.wait_for_and_click()
-
-        input_element = tag_area_input.wait_for_and_click()
-        self.sleep_for(self.wait_types.UX_RENDER)
+        tag_area_button.wait_for_and_click()
+        input_element = self.components.history_panel.tag_area_input.wait_for_visible()
 
         for tag in tags:
             input_element.send_keys(tag)
             self.send_enter(input_element)
             self.sleep_for(self.wait_types.UX_RENDER)
+
+        self.send_escape(input_element)
 
     @edit_details
     def history_panel_rename(self, new_name):
@@ -1824,7 +1826,6 @@ class NavigatesGalaxy(HasDriver):
 
     def assert_message(self, element, contains=None):
         if contains is not None:
-
             if type(element) == list:
                 assert any(
                     contains in el.text for el in element
@@ -1942,7 +1943,7 @@ class NavigatesGalaxy(HasDriver):
                     break
             else:
                 # Pick first match. We're replacing select2 anyway ...
-                select_elem = elem
+                select_elem = candidate_elements[0]
             action_chains = self.action_chains()
             action_chains.move_to_element(select_elem).click().perform()
         self.wait_for_selector_absent_or_hidden("#select2-drop")

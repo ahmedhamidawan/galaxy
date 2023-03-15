@@ -3,8 +3,8 @@
         <div unselectable="on">
             <div class="unified-panel-header-inner">
                 <nav class="d-flex justify-content-between mx-3 my-2">
-                    <h2 v-if="!showAdvanced" v-localize id="toolbox-heading" class="m-1 h-sm">Tools</h2>
-                    <h2 v-else v-localize id="toolbox-heading" class="m-1 h-sm">Advanced Tool Search</h2>
+                    <h2 v-if="!showAdvanced" id="toolbox-heading" v-localize class="m-1 h-sm">Tools</h2>
+                    <h2 v-else id="toolbox-heading" v-localize class="m-1 h-sm">Advanced Tool Search</h2>
 
                     <div class="panel-header-buttons">
                         <b-button-group>
@@ -70,10 +70,11 @@
 <script>
 import ToolSection from "./Common/ToolSection";
 import ToolSearch from "./Common/ToolSearch";
-import { UploadButton, openGlobalUploadModal } from "components/Upload";
+import { UploadButton } from "components/Upload";
+import { useGlobalUploadModal } from "composables/globalUploadModal";
 import FavoritesButton from "./Buttons/FavoritesButton";
 import PanelViewButton from "./Buttons/PanelViewButton";
-import { filterToolSections, filterTools, hasResults } from "./utilities";
+import { filterToolSections, filterTools, hasResults, hideToolsSection } from "./utilities";
 import { getGalaxyInstance } from "app";
 import { getAppRoot } from "onload";
 import _l from "utils/localization";
@@ -106,6 +107,10 @@ export default {
             default: _l("Workflows"),
         },
     },
+    setup() {
+        const { openGlobalUploadModal } = useGlobalUploadModal();
+        return { openGlobalUploadModal };
+    },
     data() {
         return {
             query: null,
@@ -130,7 +135,9 @@ export default {
             if (this.showSections) {
                 return filterToolSections(this.toolbox, this.results);
             } else {
-                return hasResults(this.results) ? filterTools(this.toolbox, this.results) : this.toolbox;
+                return hasResults(this.results)
+                    ? filterTools(this.toolbox, this.results)
+                    : hideToolsSection(this.toolbox);
             }
         },
         isUser() {
@@ -171,7 +178,7 @@ export default {
         onOpen(tool, evt) {
             if (tool.id === "upload1") {
                 evt.preventDefault();
-                openGlobalUploadModal();
+                this.openGlobalUploadModal();
             } else if (tool.form_style === "regular") {
                 evt.preventDefault();
                 // encode spaces in tool.id

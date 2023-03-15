@@ -163,6 +163,7 @@ class InteractiveToolManager:
                 entry_url=entry["url"],
                 name=entry["name"],
                 requires_domain=entry["requires_domain"],
+                short_token=self.app.config.interactivetools_shorten_url,
             )
             self.sa_session.add(ep)
         if flush:
@@ -210,6 +211,9 @@ class InteractiveToolManager:
             )
 
     def get_nonterminal_for_user_by_trans(self, trans):
+        if trans.user is None and trans.get_galaxy_session() is None:
+            return []
+
         if trans.user:
             jobs = trans.sa_session.query(trans.app.model.Job).filter(trans.app.model.Job.user == trans.user)
         else:
@@ -294,7 +298,8 @@ class InteractiveToolManager:
                     rval = "{}/{}".format(rval.rstrip("/"), entry_point.entry_url.lstrip("/"))
             else:
                 rval = self.get_entry_point_path(trans, entry_point)
-
+                if not self.app.config.interactivetools_upstream_proxy and self.app.config.interactivetools_proxy_host:
+                    rval = f"{protocol}//{request_host}{rval}"
             return rval
 
     def get_entry_point_subdomain(self, trans, entry_point):

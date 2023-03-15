@@ -1,17 +1,20 @@
 import MockAdapter from "axios-mock-adapter";
 import axios from "axios";
 import { mount } from "@vue/test-utils";
-import { getLocalVue, mockModule } from "jest/helpers";
+import { getLocalVue, mockModule } from "tests/jest/helpers";
 import ToolForm from "./ToolForm";
 import MockCurrentUser from "../providers/MockCurrentUser";
 import MockConfigProvider from "../providers/MockConfigProvider";
 import MockCurrentHistory from "components/providers/MockCurrentHistory";
 import Vue from "vue";
 import Vuex from "vuex";
+import { createPinia } from "pinia";
 import { userStore } from "store/userStore";
+import { historyStore } from "store/historyStore";
 import { configStore } from "store/configStore";
 
 const localVue = getLocalVue();
+const pinia = createPinia();
 
 describe("ToolForm", () => {
     let wrapper;
@@ -28,6 +31,7 @@ describe("ToolForm", () => {
             help: "help_text",
         };
         axiosMock.onGet(`/api/tools/tool_id/build?tool_version=version`).reply(200, toolData);
+        axiosMock.onGet(`/api/webhooks`).reply(200, []);
 
         const citations = [];
         axiosMock.onGet(`/api/tools/tool_id/citations`).reply(200, citations);
@@ -36,6 +40,7 @@ describe("ToolForm", () => {
             modules: {
                 user: mockModule(userStore),
                 config: mockModule(configStore),
+                history: mockModule(historyStore, { currentHistoryId: "fakehistory", histories: { fakehistory: {} } }),
             },
         });
 
@@ -51,7 +56,9 @@ describe("ToolForm", () => {
                 ConfigProvider: MockConfigProvider({ id: "fakeconfig" }),
                 FormDisplay: true,
             },
+            store,
             provide: { store },
+            pinia,
         });
     });
 

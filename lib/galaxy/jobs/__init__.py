@@ -288,7 +288,7 @@ def job_config_xml_to_dict(config, root):
 class JobConfiguration(ConfiguresHandlers):
     """A parser and interface to advanced job management features.
 
-    These features are configured in the job configuration, by default, ``job_conf.xml``
+    These features are configured in the job configuration, by default, ``job_conf.yml``
     """
 
     runner_plugins: List[dict]
@@ -362,14 +362,24 @@ class JobConfiguration(ConfiguresHandlers):
         try:
             if "job_config" in self.app.config.config_dict:
                 job_config_dict = self.app.config.config_dict["job_config"]
+                log.debug("Read job configuration inline from Galaxy config")
             else:
                 job_config_file = self.app.config.job_config_file
+                if not self.app.config.is_set("job_config_file") and not os.path.exists(job_config_file):
+                    job_config_file = os.path.join(os.path.dirname(self.app.config.config_file), "job_conf.xml")
+                    if os.path.exists(job_config_file):
+                        log.warning(
+                            "Implicit loading of job_conf.xml has been deprecated and will be removed in a future"
+                            f" release of Galaxy. Please convert to YAML at {self.app.config.job_config_file} or"
+                            f" explicitly set `job_config_file` to {job_config_file} to remove this message"
+                        )
                 if ".xml" in job_config_file:
                     tree = load(job_config_file)
                     job_config_dict = self.__parse_job_conf_xml(tree)
                 else:
                     with open(job_config_file) as f:
                         job_config_dict = yaml.safe_load(f)
+                log.debug(f"Read job configuration from file: {job_config_file}")
 
             # Load tasks if configured
             if self.app.config.use_tasked_jobs:
@@ -1587,8 +1597,17 @@ class MinimalJobWrapper(HasResourceParameters):
             # jobs may have this set. Skip this following code if that is the case.
             return
 
-        object_store_populator = ObjectStorePopulator(self.app, job.user)
+        object_store = self.app.object_store
+        if not object_store.object_store_allows_id_selection:
+            self._set_object_store_ids_basic(job)
+        else:
+            self._set_object_store_ids_full(job)
+
+    def _set_object_store_ids_basic(self, job):
         object_store_id = self.get_destination_configuration("object_store_id", None)
+        object_store_populator = ObjectStorePopulator(self.app, job.user)
+        require_shareable = job.requires_shareable_storage(self.app.security_agent)
+
         if object_store_id:
             object_store_populator.object_store_id = object_store_id
 
@@ -1600,10 +1619,87 @@ class MinimalJobWrapper(HasResourceParameters):
         # afterward. State below needs to happen the same way.
         for dataset_assoc in job.output_datasets + job.output_library_datasets:
             dataset = dataset_assoc.dataset
-            object_store_populator.set_object_store_id(dataset)
+            object_store_populator.set_object_store_id(dataset, require_shareable=require_shareable)
 
         job.object_store_id = object_store_populator.object_store_id
         self._setup_working_directory(job=job)
+
+    def _set_object_store_ids_full(self, job):
+        user = job.user
+        object_store_id = self.get_destination_configuration("object_store_id", None)
+        split_object_stores = None
+        object_store_id_overrides = None
+
+        if object_store_id is None:
+            object_store_id = job.preferred_object_store_id
+        if object_store_id is None and job.workflow_invocation_step:
+            workflow_invocation_step = job.workflow_invocation_step
+            invocation_object_stores = workflow_invocation_step.preferred_object_stores
+            if invocation_object_stores.is_split_configuration:
+                # Redo for subworkflows...
+                outputs_object_store_populator = ObjectStorePopulator(self.app, user)
+                preferred_outputs_object_store_id = invocation_object_stores.preferred_outputs_object_store_id
+                outputs_object_store_populator.object_store_id = preferred_outputs_object_store_id
+
+                intermediate_object_store_populator = ObjectStorePopulator(self.app, user)
+                preferred_intermediate_object_store_id = invocation_object_stores.preferred_intermediate_object_store_id
+                intermediate_object_store_populator.object_store_id = preferred_intermediate_object_store_id
+
+                # default for the job... probably isn't used in anyway but for job working
+                # directory?
+                object_store_id = invocation_object_stores.preferred_outputs_object_store_id
+                object_store_populator = intermediate_object_store_populator
+                output_names = [o.output_name for o in workflow_invocation_step.workflow_step.unique_workflow_outputs]
+                if invocation_object_stores.step_effective_outputs is not None:
+                    output_names = [
+                        o for o in output_names if invocation_object_stores.is_output_name_an_effective_output(o)
+                    ]
+
+                # we resolve the precreated datasets here with object store populators
+                # but for dynamically created datasets after the job we need to record
+                # the outputs and set them accordingly
+                object_store_id_overrides = {o: preferred_outputs_object_store_id for o in output_names}
+
+                def split_object_stores(output_name):
+                    if "|__part__|" in output_name:
+                        output_name = output_name.split("|__part__|", 1)[0]
+                    if output_name in output_names:
+                        return outputs_object_store_populator
+                    else:
+                        return intermediate_object_store_populator
+
+            else:
+                object_store_id = invocation_object_stores.preferred_object_store_id
+
+        if object_store_id is None:
+            history = job.history
+            if history is not None:
+                object_store_id = history.preferred_object_store_id
+        if object_store_id is None:
+            if user is not None:
+                object_store_id = user.preferred_object_store_id
+
+        require_shareable = job.requires_shareable_storage(self.app.security_agent)
+        if not split_object_stores:
+            object_store_populator = ObjectStorePopulator(self.app, user)
+
+            if object_store_id:
+                object_store_populator.object_store_id = object_store_id
+
+            for dataset_assoc in job.output_datasets + job.output_library_datasets:
+                dataset = dataset_assoc.dataset
+                object_store_populator.set_object_store_id(dataset, require_shareable=require_shareable)
+
+            job.object_store_id = object_store_populator.object_store_id
+            self._setup_working_directory(job=job)
+        else:
+            for dataset_assoc in job.output_datasets + job.output_library_datasets:
+                dataset = dataset_assoc.dataset
+                dataset_object_store_populator = split_object_stores(dataset_assoc.name)
+                dataset_object_store_populator.set_object_store_id(dataset, require_shareable=require_shareable)
+            job.object_store_id = object_store_populator.object_store_id
+            job.object_store_id_overrides = object_store_id_overrides
+            self._setup_working_directory(job=job)
 
     def _finish_dataset(self, output_name, dataset, job, context, final_job_state, remote_metadata_directory):
         implicit_collection_jobs = job.implicit_collection_jobs_association
@@ -1883,13 +1979,17 @@ class MinimalJobWrapper(HasResourceParameters):
         # custom post process setup
 
         collected_bytes = 0
+        quota_source_info = None
         # Once datasets are collected, set the total dataset size (includes extra files)
         for dataset_assoc in job.output_datasets:
             if not dataset_assoc.dataset.dataset.purged:
+                # assume all datasets in a job get written to the same objectstore
+                quota_source_info = dataset_assoc.dataset.dataset.quota_source_info
                 collected_bytes += dataset_assoc.dataset.set_total_size()
 
-        if job.user:
-            job.user.adjust_total_disk_usage(collected_bytes)
+        user = job.user
+        if user and collected_bytes > 0 and quota_source_info is not None and quota_source_info.use:
+            user.adjust_total_disk_usage(collected_bytes, quota_source_info.label)
 
         # Certain tools require tasks to be completed after job execution
         # ( this used to be performed in the "exec_after_process" hook, but hooks are deprecated ).

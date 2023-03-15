@@ -46,6 +46,10 @@
             <small class="mt-1">Filter by state:</small>
             <b-form-input v-model="filterSettings['state:']" size="sm" placeholder="any state" list="stateSelect" />
             <b-form-datalist id="stateSelect" :options="states"></b-form-datalist>
+            <small>Filter by database:</small>
+            <b-form-input v-model="filterSettings['genome_build:']" size="sm" placeholder="any database" />
+            <small class="mt-1">Filter by related to item index:</small>
+            <b-form-input v-model="filterSettings['related:']" size="sm" placeholder="index equals" />
             <small class="mt-1">Filter by item index:</small>
             <b-form-group class="m-0">
                 <b-input-group>
@@ -82,11 +86,10 @@
 </template>
 
 <script>
-import { getFilters, toAlias } from "store/historyStore/model/filtering";
 import DebouncedInput from "components/DebouncedInput";
-import { STATES } from "components/History/Content/model/states";
-import { getFilterText } from "./filterConversion";
 import HistoryFiltersDefault from "./HistoryFiltersDefault";
+import { STATES } from "components/History/Content/model/states";
+import { HistoryFilters } from "components/History/HistoryFilters";
 
 export default {
     components: {
@@ -105,7 +108,7 @@ export default {
     },
     computed: {
         filterSettings() {
-            return toAlias(getFilters(this.filterText));
+            return HistoryFilters.toAlias(HistoryFilters.getFilters(this.filterText));
         },
         localFilter: {
             get() {
@@ -135,7 +138,7 @@ export default {
             this.onToggle();
             this.filterSettings["create_time>"] = this.create_time_gt;
             this.filterSettings["create_time<"] = this.create_time_lt;
-            this.updateFilter(getFilterText(this.filterSettings));
+            this.updateFilter(HistoryFilters.getFilterText(this.filterSettings));
         },
         onToggle() {
             this.$emit("update:show-advanced", !this.showAdvanced);

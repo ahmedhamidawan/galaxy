@@ -192,6 +192,43 @@ INPUTS_DATA_PARAM = """
 </tool>
 """
 
+INPUTS_DATA_PARAM_OPTIONS = """
+<tool>
+    <inputs>
+        <param name="valid_name" type="data" format="txt">
+            <options>
+                <filter type="data_meta" key="dbkey" ref="input"/>
+            </options>
+        </param>
+    </inputs>
+</tool>
+"""
+
+INPUTS_DATA_PARAM_OPTIONS_FILTER_ATTRIBUTE = """
+<tool>
+    <inputs>
+        <param name="valid_name" type="data" format="txt">
+            <options options_filter_attribute="metadata.foo">
+                <filter type="data_meta" key="foo" ref="input"/>
+            </options>
+        </param>
+    </inputs>
+</tool>
+"""
+
+INPUTS_DATA_PARAM_INVALIDOPTIONS = """
+<tool>
+    <inputs>
+        <param name="valid_name" type="data" format="txt">
+            <options/>
+            <options from_file="blah">
+                <filter type="expression"/>
+            </options>
+        </param>
+    </inputs>
+</tool>
+"""
+
 INPUTS_CONDITIONAL = """
 <tool>
     <inputs>
@@ -636,6 +673,7 @@ TESTS_EXPECT_FAILURE_OUTPUT = """
         <test expect_failure="true">
             <output name="test"/>
         </test>
+        <test expect_num_outputs="1" expect_failure="true"/>
     </tests>
 </tool>
 """
@@ -747,6 +785,42 @@ TESTS_DISCOVER_OUTPUTS = """
     </tests>
 </tool>
 """
+
+TESTS_EXPECT_NUM_OUTPUTS_FILTER = """
+<tool>
+    <outputs>
+        <data>
+            <filter/>
+        </data>
+    </outputs>
+    <tests>
+        <test expect_failure="false">
+        </test>
+    </tests>
+</tool>
+"""
+
+TESTS_COMPARE_ATTRIB_INCOMPATIBILITY = """
+<tool>
+    <outputs>
+        <data name="data_name"/>
+        <collection name="collection_name" type="list:list"/>
+    </outputs>
+    <tests>
+        <test>
+            <output name="data_name" compare="re_match" decompress="true"/>
+            <output_collection name="collection_name">
+                <element compare="contains" sort="true" />
+            </output_collection>
+        </test>
+        <test>
+            <output name="data_name" compare="diff" lines_diff="2"/>
+            <output_collection name="collection_name">
+                <element compare="contains" lines_diff="2" />
+            </output_collection>
+        </test>
+    </tests>
+</tool>"""
 
 # tool xml for xml_order linter
 XML_ORDER = """
@@ -1062,6 +1136,42 @@ def test_inputs_data_param(lint_ctx):
     assert not lint_ctx.error_messages
 
 
+def test_inputs_data_param_options(lint_ctx):
+    tool_source = get_xml_tool_source(INPUTS_DATA_PARAM_OPTIONS)
+    run_lint(lint_ctx, inputs.lint_inputs, tool_source)
+    assert not lint_ctx.valid_messages
+    assert "Found 1 input parameters." in lint_ctx.info_messages
+    assert len(lint_ctx.info_messages) == 1
+    assert not lint_ctx.warn_messages
+    assert not lint_ctx.error_messages
+
+
+def test_inputs_data_param_options_filter_attribute(lint_ctx):
+    tool_source = get_xml_tool_source(INPUTS_DATA_PARAM_OPTIONS_FILTER_ATTRIBUTE)
+    run_lint(lint_ctx, inputs.lint_inputs, tool_source)
+    assert not lint_ctx.valid_messages
+    assert "Found 1 input parameters." in lint_ctx.info_messages
+    assert len(lint_ctx.info_messages) == 1
+    assert not lint_ctx.warn_messages
+    assert not lint_ctx.error_messages
+
+
+def test_inputs_data_param_invalid_options(lint_ctx):
+    tool_source = get_xml_tool_source(INPUTS_DATA_PARAM_INVALIDOPTIONS)
+    run_lint(lint_ctx, inputs.lint_inputs, tool_source)
+    assert not lint_ctx.valid_messages
+    assert "Found 1 input parameters." in lint_ctx.info_messages
+    assert len(lint_ctx.info_messages) == 1
+    assert not lint_ctx.warn_messages
+    assert "Data parameter [valid_name] contains multiple options elements." in lint_ctx.error_messages
+    assert "Data parameter [valid_name] filter needs to define a ref attribute" in lint_ctx.error_messages
+    assert (
+        'Data parameter [valid_name] for filters only type="data_meta" and key="dbkey" are allowed, found type="expression" and key="None"'
+        in lint_ctx.error_messages
+    )
+    assert len(lint_ctx.error_messages) == 3
+
+
 def test_inputs_conditional(lint_ctx):
     tool_source = get_xml_tool_source(INPUTS_CONDITIONAL)
     run_lint(lint_ctx, inputs.lint_inputs, tool_source)
@@ -1247,7 +1357,7 @@ def test_inputs_type_child_combinations(lint_ctx):
     assert not lint_ctx.valid_messages
     assert not lint_ctx.warn_messages
     assert (
-        "Parameter [text_param] './options' tags are only allowed for parameters of type ['select', 'drill_down']"
+        "Parameter [text_param] './options' tags are only allowed for parameters of type ['data', 'select', 'drill_down']"
         in lint_ctx.error_messages
     )
     assert (
@@ -1338,12 +1448,12 @@ def test_outputs_format_input(lint_ctx):
     assert "1 outputs found." in lint_ctx.info_messages
     assert (
         "Using format='input' on data, format_source attribute is less ambiguous and should be used instead."
-        in lint_ctx.warn_messages
+        in lint_ctx.error_messages
     )
     assert len(lint_ctx.info_messages) == 1
     assert not lint_ctx.valid_messages
-    assert len(lint_ctx.warn_messages) == 1
-    assert not lint_ctx.error_messages
+    assert not lint_ctx.warn_messages
+    assert len(lint_ctx.error_messages) == 1
 
 
 def test_outputs_collection_format_source(lint_ctx):
@@ -1495,10 +1605,14 @@ def test_tests_expect_failure_output(lint_ctx):
     run_lint(lint_ctx, tests.lint_tests, tool_source)
     assert "No valid test(s) found." in lint_ctx.warn_messages
     assert "Test 1: Cannot specify outputs in a test expecting failure." in lint_ctx.error_messages
+    assert (
+        "Test 2: Cannot make assumptions on the number of outputs in a test expecting failure."
+        in lint_ctx.error_messages
+    )
     assert not lint_ctx.info_messages
     assert not lint_ctx.valid_messages
     assert len(lint_ctx.warn_messages) == 1
-    assert len(lint_ctx.error_messages) == 1
+    assert len(lint_ctx.error_messages) == 2
 
 
 def test_tests_without_expectations(lint_ctx):
@@ -1536,7 +1650,7 @@ def test_tests_asserts(lint_ctx):
         "Test 1: unknown attribute 'invalid_attrib_also_checked_in_nested_asserts' for 'not_has_text'"
         in lint_ctx.error_messages
     )
-    assert "Test 1: 'has_size' needs to specify 'n', 'min', or 'max'" in lint_ctx.error_messages
+    assert "Test 1: 'has_size' needs to specify 'value', 'min', or 'max'" in lint_ctx.error_messages
     assert "Test 1: 'has_n_columns' needs to specify 'n', 'min', or 'max'" in lint_ctx.error_messages
     assert "Test 1: 'has_n_lines' needs to specify 'n', 'min', or 'max'" in lint_ctx.error_messages
     assert not lint_ctx.warn_messages
@@ -1581,6 +1695,25 @@ def test_tests_discover_outputs(lint_ctx):
     assert len(lint_ctx.error_messages) == 4
 
 
+def test_tests_expect_num_outputs_filter(lint_ctx):
+    tool_source = get_xml_tool_source(TESTS_EXPECT_NUM_OUTPUTS_FILTER)
+    run_lint(lint_ctx, tests.lint_tests, tool_source)
+    assert "Test should specify 'expect_num_outputs' if outputs have filters" in lint_ctx.warn_messages
+    assert len(lint_ctx.warn_messages) == 1
+    assert len(lint_ctx.error_messages) == 0
+
+
+def test_tests_compare_attrib_incompatibility(lint_ctx):
+    tool_source = get_xml_tool_source(TESTS_COMPARE_ATTRIB_INCOMPATIBILITY)
+    run_lint(lint_ctx, tests.lint_tests, tool_source)
+    assert 'Test 1: Attribute decompress is incompatible with compare="re_match".' in lint_ctx.error_messages
+    assert 'Test 1: Attribute sort is incompatible with compare="contains".' in lint_ctx.error_messages
+    assert not lint_ctx.info_messages
+    assert len(lint_ctx.valid_messages) == 1
+    assert not lint_ctx.warn_messages
+    assert len(lint_ctx.error_messages) == 2
+
+
 def test_xml_order(lint_ctx):
     tool_source = get_xml_tool_source(XML_ORDER)
     run_lint(lint_ctx, xml_order.lint_xml_order, tool_source)
@@ -1590,6 +1723,37 @@ def test_xml_order(lint_ctx):
     assert not lint_ctx.valid_messages
     assert len(lint_ctx.warn_messages) == 1
     assert not lint_ctx.error_messages
+
+
+DATA_MANAGER = """<tool id="test_dm" name="test dm" version="1" type="manage_data">
+    <inputs>
+        <param name="select" type="select">
+            <option value="a">a</option>
+            <option value="a">a</option>
+        </param>
+    </inputs>
+</tool>
+"""
+
+
+def test_data_manager(lint_ctx_xpath, lint_ctx):
+    """
+    test that all (not really testing 'all', but more than the general linter
+    which was the only one applied to data managers until 23.0) linters are applied
+    """
+    tool_xml = get_xml_tool_source(DATA_MANAGER)
+    tool_source = XmlToolSource(tool_xml)
+    lint_tool_source_with(lint_ctx, tool_source)
+    assert "No tests found, most tools should define test cases." in lint_ctx.warn_messages
+    assert "Tool contains no outputs section, most tools should produce outputs." in lint_ctx.warn_messages
+    assert "No help section found, consider adding a help section to your tool." in lint_ctx.warn_messages
+    assert "No citations found, consider adding citations to your tool." in lint_ctx.warn_messages
+    assert "Select parameter [select] has multiple options with the same text content" in lint_ctx.error_messages
+    assert "Select parameter [select] has multiple options with the same value" in lint_ctx.error_messages
+    assert "No command tag found, must specify a command template to execute." in lint_ctx.error_messages
+    assert lint_ctx.valid_messages
+    assert len(lint_ctx.warn_messages) == 4
+    assert len(lint_ctx.error_messages) == 3
 
 
 COMPLETE = """<tool>

@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 
 from galaxy.model.unittest_utils.store_fixtures import one_hda_model_store_dict
 from galaxy.selenium.navigates_galaxy import retry_call_during_transitions
-from galaxy.tool_util.unittest_utils import skip_if_github_down
+from galaxy.util.unittest_utils import skip_if_github_down
 from galaxy_test.base import rules_test_data
 from galaxy_test.base.populators import (
     flakey,
@@ -67,7 +67,7 @@ class TestToolForm(SeleniumTestCase, UsesHistoryItemAssertions):
         job_outputs = self._table_to_key_value_elements("table#job-outputs")
         assert job_outputs[0][0].text == "environment_variables"
         generic_item = job_outputs[0][1]
-        assert "1 : environment_variables" in generic_item.text
+        assert "1: environment_variables" in generic_item.text
         generic_item.click()
         self.sleep_for(self.wait_types.UX_RENDER)
         assert generic_item.find_element(By.CSS_SELECTOR, "pre").text == "42\nmoo\nNOTTHREE"
@@ -181,7 +181,6 @@ class TestToolForm(SeleniumTestCase, UsesHistoryItemAssertions):
 
 
 class TestLoggedInToolForm(SeleniumTestCase):
-
     ensure_registered = True
 
     @selenium_test

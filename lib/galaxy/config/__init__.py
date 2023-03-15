@@ -30,6 +30,7 @@ from typing import (
     TypeVar,
     Union,
 )
+from urllib.parse import urlparse
 
 import yaml
 
@@ -48,6 +49,7 @@ from galaxy.util.properties import (
     read_properties_from_file,
     running_from_source,
 )
+from galaxy.util.themes import flatten_theme
 from ..version import (
     VERSION_MAJOR,
     VERSION_MINOR,
@@ -134,6 +136,7 @@ LOGGING_CONFIG_DEFAULT: Dict[str, Any] = {
 """Default value for logging configuration, passed to :func:`logging.config.dictConfig`"""
 
 VERSION_JSON_FILE = "version.json"
+DEFAULT_EMAIL_FROM_LOCAL_PART = "galaxy-no-reply"
 
 
 def configure_logging(config, facts=None):
@@ -411,7 +414,6 @@ class BaseAppConfiguration(HasDynamicProperties):
                     return path
 
     def _update_raw_config_from_kwargs(self, kwargs):
-
         type_converters: Dict[str, Callable[[Any], Union[bool, int, float, str]]] = {
             "bool": string_as_bool,
             "int": int,
@@ -612,16 +614,6 @@ class CommonConfigurationMixin:
 
 
 class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
-    deprecated_options = (
-        "database_file",
-        "track_jobs_in_database",
-        "blacklist_file",
-        "whitelist_file",
-        "sanitize_whitelist_file",
-        "user_library_import_symlink_whitelist",
-        "fetch_url_whitelist",
-        "containers_resolvers_config_file",
-    )
     renamed_options = {
         "blacklist_file": "email_domain_blocklist_file",
         "whitelist_file": "email_domain_allowlist_file",
@@ -629,7 +621,14 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         "user_library_import_symlink_whitelist": "user_library_import_symlink_allowlist",
         "fetch_url_whitelist": "fetch_url_allowlist",
         "containers_resolvers_config_file": "container_resolvers_config_file",
+        "activation_email": "email_from",
     }
+
+    deprecated_options = list(renamed_options.keys()) + [
+        "database_file",
+        "track_jobs_in_database",
+    ]
+
     default_config_file_name = "galaxy.yml"
     deprecated_dirs = {"config_dir": "config", "data_dir": "database"}
 
@@ -663,6 +662,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         "file_path",
         "tool_data_table_config_path",
         "tool_config_file",
+        "themes_config_file",
     }
 
     add_sample_file_to_defaults = {
@@ -702,7 +702,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
     galaxy_data_manager_data_path: str
     use_remote_user: bool
     preserve_python_environment: str
-    email_from: str
+    email_from: Optional[str]
     workflow_resource_params_mapper: str
     sanitize_allowlist_file: str
     allowed_origin_hostnames: List[str]
@@ -718,6 +718,8 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
     pretty_datetime_format: str
     visualization_plugins_directory: str
     galaxy_infrastructure_url: str
+    themes: Dict[str, Dict[str, str]]
+    themes_by_host: Dict[str, Dict[str, Dict[str, str]]]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -766,16 +768,19 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         val = getattr(self, config_option)
         if config_option in self.schema.per_host_options:
             per_host_option = f"{config_option}_by_host"
+            per_host: Dict[str, Any] = {}
             if per_host_option in self.config_dict:
                 per_host = self.config_dict[per_host_option] or {}
-                for host_key, host_val in per_host.items():
-                    if host_key in host:
-                        val = host_val
-                        break
+            else:
+                per_host = getattr(self, per_host_option, {})
+            for host_key, host_val in per_host.items():
+                if host_key in host:
+                    val = host_val
+                    break
 
         return val
 
-    def _process_config(self, kwargs):
+    def _process_config(self, kwargs: Dict[str, Any]) -> None:
         # Backwards compatibility for names used in too many places to fix
         self.datatypes_config = self.datatypes_config_file
         self.tool_configs = self.tool_config_file
@@ -822,7 +827,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             self.tool_data_path = self._in_data_dir(self.schema.defaults["tool_data_path"])
         self.builds_file_path = os.path.join(self.tool_data_path, self.builds_file_path)
         self.len_file_path = os.path.join(self.tool_data_path, self.len_file_path)
-        self.oidc = {}
+        self.oidc: Dict[str, Dict] = {}
         self.integrated_tool_panel_config = self._in_managed_config_dir(self.integrated_tool_panel_config)
         integrated_tool_panel_tracking_directory = kwargs.get("integrated_tool_panel_tracking_directory")
         if integrated_tool_panel_tracking_directory:
@@ -889,9 +894,6 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         self.nodejs_path = kwargs.get("nodejs_path")
         self.container_image_cache_path = self._in_data_dir(kwargs.get("container_image_cache_path", "container_cache"))
         self.output_size_limit = int(kwargs.get("output_size_limit", 0))
-        # activation_email was used until release_15.03
-        activation_email = kwargs.get("activation_email")
-        self.email_from = self.email_from or activation_email
 
         self.email_domain_blocklist_content = (
             self._load_list_from_file(self._in_config_dir(self.email_domain_blocklist_file))
@@ -977,10 +979,6 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         # tool_dependency_dir can be "none" (in old configs). If so, set it to None
         if self.tool_dependency_dir and self.tool_dependency_dir.lower() == "none":
             self.tool_dependency_dir = None
-        if self.involucro_path is None:
-            target_dir = self.tool_dependency_dir or self.schema.defaults["tool_dependency_dir"]
-            self.involucro_path = self._in_data_dir(os.path.join(target_dir, "involucro"))
-        self.involucro_path = self._in_root_dir(self.involucro_path)
         if self.mulled_channels:
             self.mulled_channels = [c.strip() for c in self.mulled_channels.split(",")]  # type: ignore[attr-defined]
 
@@ -1035,7 +1033,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
                 self.server_name = arg.split("=", 1)[-1]
         # Allow explicit override of server name in config params
         if "server_name" in kwargs:
-            self.server_name = kwargs.get("server_name")
+            self.server_name = kwargs["server_name"]
         # The application stack code may manipulate the server name. It also needs to be accessible via the get() method
         # for galaxy.util.facts()
         self.config_dict["base_server_name"] = self.base_server_name = self.server_name
@@ -1045,7 +1043,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             if section.startswith("server:"):
                 self.server_names.append(section.replace("server:", "", 1))
 
-        self._set_galaxy_infrastructure_url(kwargs)
+        self._set_host_related_options(kwargs)
 
         # Asynchronous execution process pools - limited functionality for now, attach_to_pools is designed to allow
         # webless Galaxy server processes to attach to arbitrary message queues (e.g. as job handlers) so they do not
@@ -1171,6 +1169,27 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             }
             LOGGING_CONFIG_DEFAULT["root"]["handlers"].append("files")
 
+        # Load and flatten themes into css variables
+        def _load_theme(path: str, theme_dict: dict):
+            if self._path_exists(path):
+                with open(path) as f:
+                    themes = yaml.safe_load(f)
+                    for key, val in themes.items():
+                        theme_dict[key] = flatten_theme(val)
+
+        self.themes = {}
+
+        if "themes_config_file_by_host" in self.config_dict:
+            self.themes_by_host = {}
+            resolve_to_dir = self.schema.paths_to_resolve["themes_config_file"]
+            resolve_dir_path = getattr(self, resolve_to_dir)
+            for host, file_name in self.config_dict["themes_config_file_by_host"].items():
+                self.themes_by_host[host] = {}
+                file_path = self._in_dir(resolve_dir_path, file_name)
+                _load_theme(file_path, self.themes_by_host[host])
+        else:
+            _load_theme(self.themes_config_file, self.themes)
+
     def _configure_dataset_storage(self):
         # The default for `file_path` has changed in 20.05; we may need to fall back to the old default
         self._set_alt_paths("file_path", self._in_data_dir("files"))  # this is called BEFORE guessing id/uuid
@@ -1186,6 +1205,12 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
     def _load_list_from_file(self, filepath):
         with open(filepath) as f:
             return [line.strip() for line in f]
+
+    def _set_host_related_options(self, kwargs):
+        # The following 3 method calls must be made in sequence
+        self._set_galaxy_infrastructure_url(kwargs)
+        self._set_hostname()
+        self._set_email_from()
 
     def _set_galaxy_infrastructure_url(self, kwargs):
         # indicate if this was not set explicitly, so dependending on the context a better default
@@ -1204,6 +1229,16 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             )
         if "UWSGI_PORT" in self.galaxy_infrastructure_url:
             raise Exception("UWSGI_PORT is not supported anymore")
+
+    def _set_hostname(self):
+        if self.galaxy_infrastructure_url_set:
+            self.hostname = urlparse(self.galaxy_infrastructure_url).hostname
+        else:
+            self.hostname = socket.getfqdn()
+
+    def _set_email_from(self):
+        if not self.email_from:
+            self.email_from = f"{DEFAULT_EMAIL_FROM_LOCAL_PART}@{self.hostname}"
 
     def reload_sanitize_allowlist(self, explicit=True):
         self.sanitize_allowlist = []

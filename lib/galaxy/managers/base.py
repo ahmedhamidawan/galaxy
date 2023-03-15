@@ -141,21 +141,21 @@ def get_class(class_name):
     return item_class
 
 
-def decode_id(app: BasicSharedApp, id: Any):
+def decode_id(app: BasicSharedApp, id: Any, kind: Optional[str] = None):
     # note: use str - occasionally a fully numeric id will be placed in post body and parsed as int via JSON
     #   resulting in error for valid id
     if isinstance(id, DecodedDatabaseIdField):
         return int(id)
     else:
-        return decode_with_security(app.security, id)
+        return decode_with_security(app.security, id, kind=kind)
 
 
-def decode_with_security(security: IdEncodingHelper, id: Any):
-    return security.decode_id(str(id))
+def decode_with_security(security: IdEncodingHelper, id: Any, kind: Optional[str] = None):
+    return security.decode_id(str(id), kind=kind)
 
 
-def encode_with_security(security: IdEncodingHelper, id: Any):
-    return security.encode_id(id)
+def encode_with_security(security: IdEncodingHelper, id: Any, kind: Optional[str] = None):
+    return security.encode_id(id, kind=kind)
 
 
 def get_object(trans, id, class_name, check_ownership=False, check_accessible=False, deleted=None):
@@ -227,7 +227,7 @@ class ModelManager(Generic[U]):
     def session(self) -> scoped_session:
         return self.app.model.context
 
-    def _session_setattr(self, item: model._HasTable, attr: str, val: Any, flush: bool = True):
+    def _session_setattr(self, item: model.Base, attr: str, val: Any, flush: bool = True):
         setattr(item, attr, val)
 
         self.session().add(item)
@@ -305,7 +305,7 @@ class ModelManager(Generic[U]):
         """
         Returns a tuple of columns for the default order when getting multiple models.
         """
-        return (self.model_class.table.c.create_time,)
+        return (self.model_class.__table__.c.create_time,)
 
     def _apply_orm_limit_offset(self, query: Query, limit: Optional[int], offset: Optional[int]) -> Query:
         """
@@ -356,7 +356,7 @@ class ModelManager(Generic[U]):
         """
         Gets a model by primary id.
         """
-        id_filter = self.model_class.table.c.id == id
+        id_filter = self.model_class.__table__.c.id == id
         return self.one(filters=id_filter)
 
     # .... multirow queries
@@ -449,7 +449,7 @@ class ModelManager(Generic[U]):
         """
         if not ids:
             return []
-        ids_filter = parsed_filter("orm", self.model_class.table.c.id.in_(ids))
+        ids_filter = parsed_filter("orm", self.model_class.__table__.c.id.in_(ids))
         found = self.list(filters=self._munge_filters(ids_filter, filters), **kwargs)
         # TODO: this does not order by the original 'ids' array
 
@@ -1082,7 +1082,7 @@ class ModelFilterParser(HasAModelManager):
         """
         # TODO: allow defining the default filter op in this class (and not 'eq' in base/controller.py)
         parsed = []
-        for (attr, op, val) in filter_tuple_list:
+        for attr, op, val in filter_tuple_list:
             filter_ = self.parse_filter(attr, op, val)
             parsed.append(filter_)
         return parsed
@@ -1159,7 +1159,7 @@ class ModelFilterParser(HasAModelManager):
         # note: column_map[ 'column' ] takes precedence
         if "column" in column_map:
             attr = column_map["column"]
-        column = self.model_class.table.columns.get(attr)
+        column = self.model_class.__table__.columns.get(attr)
         if column is None:
             # could be a property (hybrid_property, etc.) - assume we can make a filter from it
             column = getattr(self.model_class, attr)

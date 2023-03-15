@@ -1,4 +1,9 @@
 import logging
+from typing import (
+    Any,
+    Callable,
+    Dict,
+)
 
 import tool_shed.util.shed_util_common as suc
 from galaxy import (
@@ -20,7 +25,7 @@ log = logging.getLogger(__name__)
 class CategoriesController(BaseAPIController):
     """RESTful controller for interactions with categories in the Tool Shed."""
 
-    def __get_value_mapper(self, trans):
+    def __get_value_mapper(self, trans) -> Dict[str, Callable]:
         value_mapper = {"id": trans.security.encode_id}
         return value_mapper
 
@@ -80,6 +85,7 @@ class CategoriesController(BaseAPIController):
         sort_order = kwd.get("sort_order", "asc")
         page = kwd.get("page", None)
         category = suc.get_category(self.app, category_id)
+        category_dict: Dict[str, Any]
         if category is None:
             category_dict = dict(message=f"Unable to locate category record for id {str(id)}.", status="error")
             return category_dict

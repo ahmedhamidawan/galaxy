@@ -104,21 +104,21 @@ class MockApp(di.Container, GalaxyDataTestApp):
     job_metrics: JobMetrics
     stop: bool
 
-    def __init__(self, config=None, **kwargs):
+    def __init__(self, config=None, **kwargs) -> None:
         super().__init__()
         config = config or MockAppConfig(**kwargs)
         GalaxyDataTestApp.__init__(self, config=config, **kwargs)
         self[BasicSharedApp] = cast(BasicSharedApp, self)
-        self[MinimalManagerApp] = cast(MinimalManagerApp, self)
-        self[StructuredApp] = cast(StructuredApp, self)
+        self[MinimalManagerApp] = cast(MinimalManagerApp, self)  # type: ignore[type-abstract]
+        self[StructuredApp] = cast(StructuredApp, self)  # type: ignore[type-abstract]
         self[idencoding.IdEncodingHelper] = self.security
         self.name = kwargs.get("name", "galaxy")
         self[SharedModelMapping] = self.model
         self[GalaxyModelMapping] = self.model
         sts_config = ShortTermStorageConfiguration(short_term_storage_directory=os.path.join(config.data_dir, "sts"))
         sts_manager = ShortTermStorageManager(sts_config)
-        self[ShortTermStorageAllocator] = sts_manager  # type: ignore[misc]
-        self[ShortTermStorageMonitor] = sts_manager  # type: ignore[misc]
+        self[ShortTermStorageAllocator] = sts_manager  # type: ignore[type-abstract]
+        self[ShortTermStorageMonitor] = sts_manager  # type: ignore[type-abstract]
         self[galaxy_scoped_session] = self.model.context
         self.visualizations_registry = MockVisualizationsRegistry()
         self.tag_handler = tags.GalaxyTagHandler(self.model.context)
@@ -185,16 +185,25 @@ class MockAppConfig(GalaxyDataTestConfig, CommonConfigurationMixin):
         self.user_activation_on = False
         self.new_user_dataset_access_role_default_private = False
 
-        self.expose_dataset_path = True
+        self.activation_grace_period = 0
         self.allow_user_dataset_purge = True
         self.allow_user_creation = True
+        self.auth_config_file = "config/auth_conf.xml.sample"
+        self.custom_activation_email_message = "custom_activation_email_message"
         self.email_domain_allowlist_content = None
         self.email_domain_blocklist_content = None
+        self.email_from = "email_from"
         self.enable_old_display_applications = True
-        self.redact_username_in_logs = False
-        self.auth_config_file = "config/auth_conf.xml.sample"
         self.error_email_to = "admin@email.to"
+        self.expose_dataset_path = True
+        self.hostname = "hostname"
+        self.instance_resource_url = "instance_resource_url"
         self.password_expiration_period = 0
+        self.pretty_datetime_format = "pretty_datetime_format"
+        self.redact_username_in_logs = False
+        self.smtp_server = True
+        self.terms_url = "terms_url"
+        self.templates_dir = "templates"
 
         self.umask = 0o77
         self.flush_per_n_datasets = 0

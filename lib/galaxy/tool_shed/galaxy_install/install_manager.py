@@ -36,6 +36,10 @@ from galaxy.util.tool_shed import (
     common_util,
     encoding_util,
 )
+from tool_shed_client.schema import (
+    ExtraRepoInfo,
+    RepositoryMetadataInstallInfoDict,
+)
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +77,7 @@ class InstallRepositoryManager:
 
     def __get_install_info_from_tool_shed(
         self, tool_shed_url: str, name: str, owner: str, changeset_revision: str
-    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    ) -> Tuple[RepositoryMetadataInstallInfoDict, List[ExtraRepoInfo]]:
         params = dict(name=name, owner=owner, changeset_revision=changeset_revision)
         pathspec = ["api", "repositories", "get_repository_revision_install_info"]
         try:
@@ -94,8 +98,8 @@ class InstallRepositoryManager:
             # Repository revision (RepositoryMetadata), and a dictionary including the additional
             # information required to install the repository.
             items = json.loads(util.unicodify(raw_text))
-            repository_revision_dict = items[1]
-            repo_info_dict = items[2]
+            repository_revision_dict: RepositoryMetadataInstallInfoDict = items[1]
+            repo_info_dict: ExtraRepoInfo = items[2]
         else:
             message = (
                 "Unable to retrieve installation information from tool shed %s for revision %s of repository %s owned by %s"
@@ -126,7 +130,7 @@ class InstallRepositoryManager:
         shed_tool_conf=None,
         reinstalling=False,
         tool_panel_section_mapping=None,
-    ):
+    ) -> None:
         """
         Generate the metadata for the installed tool shed repository, among other things.
         This method is called when an administrator is installing a new repository or
@@ -206,6 +210,7 @@ class InstallRepositoryManager:
                 )
         if "data_manager" in irmm_metadata_dict:
             dmh = data_manager.DataManagerHandler(self.app)
+            assert shed_config_dict
             dmh.install_data_managers(
                 self.app.config.shed_data_manager_config_file,
                 irmm_metadata_dict,
@@ -342,8 +347,8 @@ class InstallRepositoryManager:
     def __initiate_and_install_repositories(
         self,
         tool_shed_url: str,
-        repository_revision_dict: Dict[str, Any],
-        repo_info_dicts: List[Dict[str, Any]],
+        repository_revision_dict: RepositoryMetadataInstallInfoDict,
+        repo_info_dicts: List[ExtraRepoInfo],
         install_options: Dict[str, Any],
     ):
         try:

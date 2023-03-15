@@ -58,7 +58,11 @@ class ConditionalDependencies:
         if "job_config" in self.config:
             load_job_config_dict(self.config.get("job_config"))
         else:
-            job_conf_path = self.config.get("job_config_file", join(dirname(self.config_file), "job_conf.xml"))
+            job_conf_path = self.config.get("job_config_file")
+            if not job_conf_path:
+                job_conf_path = join(dirname(self.config_file), "job_conf.yml")
+                if not exists(job_conf_path):
+                    job_conf_path = join(dirname(self.config_file), "job_conf.xml")
             if ".xml" in job_conf_path:
                 try:
                     try:
@@ -220,6 +224,9 @@ class ConditionalDependencies:
     def check_python_ldap(self):
         return "ldap" in self.authenticators or "activedirectory" in self.authenticators
 
+    def check_ldap3(self):
+        return "ldap3" in self.authenticators
+
     def check_python_pam(self):
         return "PAM" in self.authenticators
 
@@ -238,20 +245,12 @@ class ConditionalDependencies:
     def check_fs_webdavfs(self):
         return "webdav" in self.file_sources
 
-    def check_fs_s3fs(self):
-        # pyfilesystem plugin access to s3
-        return "s3" in self.file_sources
-
     def check_fs_anvilfs(self):
         # pyfilesystem plugin access to terra on anvil
         return "anvil" in self.file_sources
 
     def check_fs_sshfs(self):
         return "ssh" in self.file_sources
-
-    def check_s3fs(self):
-        # use s3fs directly (skipping pyfilesystem) for direct access to more options
-        return "s3fs" in self.file_sources
 
     def check_fs_googledrivefs(self):
         return "googledrive" in self.file_sources
@@ -277,9 +276,6 @@ class ConditionalDependencies:
 
     def check_influxdb(self):
         return "influxdb" in self.error_report_modules
-
-    def check_keras(self):
-        return asbool(self.config["enable_tool_recommendations"])
 
     def check_tensorflow(self):
         return asbool(self.config["enable_tool_recommendations"])

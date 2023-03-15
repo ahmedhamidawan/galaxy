@@ -77,10 +77,8 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-@import "theme/blue.scss";
-
 .quota-meter {
-    position: absolute;
+    position: relative;
     right: 0.8rem;
     width: 100px;
     height: 100%;
@@ -104,8 +102,14 @@ export default {
     }
 
     .quota-text {
-        color: $brand-light;
+        color: var(--masthead-text-color);
         text-decoration: none;
+    }
+
+    :deep(a) {
+        &:focus-visible {
+            outline: 2px solid var(--masthead-text-hover);
+        }
     }
 }
 </style>

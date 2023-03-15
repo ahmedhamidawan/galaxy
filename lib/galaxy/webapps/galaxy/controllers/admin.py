@@ -1,9 +1,11 @@
 import logging
+from typing import Set
 
 from sqlalchemy import (
     false,
     func,
 )
+from typing_extensions import TypedDict
 
 from galaxy import (
     model,
@@ -17,6 +19,7 @@ from galaxy.exceptions import (
 from galaxy.managers.quotas import QuotaManager
 from galaxy.model import tool_shed_install as install_model
 from galaxy.security.validate_user_input import validate_password
+from galaxy.structured_app import StructuredApp
 from galaxy.util import (
     nice_size,
     pretty_print_time_interval,
@@ -535,8 +538,15 @@ class ToolVersionListGrid(grids.Grid):
         return trans.install_model.context.query(self.model_class)
 
 
-class AdminGalaxy(controller.JSAppLauncher):
+# TODO: Convert admin UI to use the API and drop this.
+class DatatypesEntryT(TypedDict):
+    status: str
+    keys: list
+    data: list
+    message: str
 
+
+class AdminGalaxy(controller.JSAppLauncher):
     user_list_grid = UserListGrid()
     role_list_grid = RoleListGrid()
     group_list_grid = GroupListGrid()
@@ -564,7 +574,7 @@ class AdminGalaxy(controller.JSAppLauncher):
         "Resend Activation Email", condition=(lambda item: not item.active), allow_multiple=False
     )
 
-    def __init__(self, app):
+    def __init__(self, app: StructuredApp):
         super().__init__(app)
         self.quota_manager: QuotaManager = QuotaManager(app)
 
@@ -594,9 +604,9 @@ class AdminGalaxy(controller.JSAppLauncher):
     @web.expose
     @web.json
     @web.require_admin
-    def data_types_list(self, trans, **kwd):
+    def data_types_list(self, trans, **kwd) -> DatatypesEntryT:
         datatypes = []
-        keys = set()
+        keys: Set[str] = set()
         message = kwd.get("message", "")
         status = kwd.get("status", "done")
         for dtype in sorted(trans.app.datatypes_registry.datatype_elems, key=lambda dt: dt.get("extension")):
@@ -688,6 +698,9 @@ class AdminGalaxy(controller.JSAppLauncher):
         if trans.request.method == "GET":
             all_users = []
             all_groups = []
+            labels = trans.app.object_store.get_quota_source_map().get_quota_source_labels()
+            label_options = [("Default Quota", None)]
+            label_options.extend([(label, label) for label in labels])
             for user in (
                 trans.sa_session.query(trans.app.model.User)
                 .filter(trans.app.model.User.table.c.deleted == false())
@@ -703,7 +716,7 @@ class AdminGalaxy(controller.JSAppLauncher):
             default_options = [("No", "no")]
             for type_ in trans.app.model.DefaultQuotaAssociation.types:
                 default_options.append((f"Yes, {type_}", type_))
-            return {
+            rval = {
                 "title": "Create Quota",
                 "inputs": [
                     {"name": "name", "label": "Name"},
@@ -720,10 +733,23 @@ class AdminGalaxy(controller.JSAppLauncher):
                         "options": default_options,
                         "help": "Warning: Any users or groups associated with this quota will be disassociated.",
                     },
-                    build_select_input("in_groups", "Groups", all_groups, []),
-                    build_select_input("in_users", "Users", all_users, []),
                 ],
             }
+            if len(label_options) > 1:
+                rval["inputs"].append(
+                    {
+                        "name": "quota_source_label",
+                        "label": "Apply quota to labeled object stores.",
+                        "options": label_options,
+                    }
+                )
+            rval["inputs"].extend(
+                [
+                    build_select_input("in_groups", "Groups", all_groups, []),
+                    build_select_input("in_users", "Users", all_users, []),
+                ]
+            )
+            return rval
         else:
             try:
                 quota, message = self.quota_manager.create_quota(payload, decode_id=trans.security.decode_id)

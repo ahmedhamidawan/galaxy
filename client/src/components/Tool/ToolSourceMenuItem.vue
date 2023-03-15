@@ -1,11 +1,11 @@
 <script setup>
 import ToolSource from "./ToolSource.vue";
-import { useConfig } from "composables/useConfig";
+import { useConfig } from "composables/config";
 import { useCurrentUser } from "composables/user";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
-const { config } = useConfig();
-const { currentUser } = useCurrentUser();
+const { config } = useConfig(true);
+const { currentUser } = useCurrentUser(false, true);
 
 const props = defineProps({
     toolId: {

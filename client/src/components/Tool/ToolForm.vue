@@ -10,12 +10,6 @@
                     <div v-if="showEntryPoints">
                         <ToolEntryPoints v-for="job in entryPoints" :key="job.id" :job-id="job.id" />
                     </div>
-                    <ToolSuccess
-                        v-if="showSuccess"
-                        :job-def="jobDef"
-                        :job-response="jobResponse"
-                        :tool-name="toolName" />
-                    <Webhook v-if="showSuccess" type="tool" :tool-id="jobDef.tool_id" />
                     <b-modal v-model="showError" size="sm" :title="errorTitle | l" scrollable ok-only>
                         <b-alert v-if="errorMessage" show variant="danger">
                             {{ errorMessage }}
@@ -40,8 +34,11 @@
                         :message-text="messageText"
                         :message-variant="messageVariant"
                         :disabled="disabled || showExecuting"
+                        :allow-object-store-selection="config.object_store_allows_id_selection"
+                        :preferred-object-store-id="preferredObjectStoreId"
                         itemscope="itemscope"
                         itemtype="https://schema.org/CreativeWork"
+                        @updatePreferredObjectStoreId="onUpdatePreferredObjectStoreId"
                         @onChangeVersion="onChangeVersion">
                         <template v-slot:body>
                             <div class="mt-2 mb-4">
@@ -107,6 +104,10 @@
 
 <script>
 import { getGalaxyInstance } from "app";
+import { useHistoryItemsStore } from "stores/history/historyItemsStore";
+import { useJobStore } from "stores/jobStore";
+import { mapState, mapActions } from "pinia";
+import { mapGetters } from "vuex";
 import { getToolFormData, updateToolFormData, submitJob } from "./services";
 import { allowCachedJobs } from "./utilities";
 import { refreshContentsWrapper } from "utils/data";
@@ -118,10 +119,8 @@ import LoadingSpan from "components/LoadingSpan";
 import FormDisplay from "components/Form/FormDisplay";
 import FormElement from "components/Form/FormElement";
 import ToolEntryPoints from "components/ToolEntryPoints/ToolEntryPoints";
-import ToolSuccess from "./ToolSuccess";
 import ToolRecommendation from "../ToolRecommendation";
 import UserHistories from "components/providers/UserHistories";
-import Webhook from "components/Common/Webhook";
 import Heading from "components/Common/Heading";
 
 export default {
@@ -134,10 +133,8 @@ export default {
         ToolCard,
         FormElement,
         ToolEntryPoints,
-        ToolSuccess,
         ToolRecommendation,
         UserHistories,
-        Webhook,
         Heading,
     },
     props: {
@@ -161,11 +158,11 @@ export default {
     data() {
         return {
             disabled: false,
+            initialized: false,
             showLoading: true,
             showForm: false,
             showEntryPoints: false,
             showRecommendation: false,
-            showSuccess: false,
             showError: false,
             showExecuting: false,
             formConfig: {},
@@ -186,9 +183,12 @@ export default {
             validationInternal: null,
             validationScrollTo: null,
             currentVersion: this.version,
+            preferredObjectStoreId: null,
         };
     },
     computed: {
+        ...mapState(useHistoryItemsStore, ["getLastUpdateTime"]),
+        ...mapGetters("history", ["currentHistoryId"]),
         toolName() {
             return this.formConfig.name;
         },
@@ -219,23 +219,22 @@ export default {
             }
         },
     },
+    watch: {
+        currentHistoryId() {
+            this.onHistoryChange();
+        },
+        getLastUpdateTime() {
+            this.onHistoryChange();
+        },
+    },
     created() {
         this.requestTool().then(() => {
-            const Galaxy = getGalaxyInstance();
-            if (Galaxy && Galaxy.currHistoryPanel) {
-                console.debug(`ToolForm::created - Started listening to history changes. [${this.id}]`);
-                Galaxy.currHistoryPanel.collection.on("change", this.onHistoryChange, this);
-            }
+            this.initialized = true;
+            console.debug(`ToolForm::created - Started listening to history changes. [${this.id}]`);
         });
     },
-    beforeDestroy() {
-        const Galaxy = getGalaxyInstance();
-        if (Galaxy && Galaxy.currHistoryPanel) {
-            Galaxy.currHistoryPanel.collection.off("change", this.onHistoryChange, this);
-            console.debug(`ToolForm::beforeDestroy - Stopped listening to history changes. [${this.id}]`);
-        }
-    },
     methods: {
+        ...mapActions(useJobStore, ["saveLatestResponse"]),
         emailAllowed(config, user) {
             return config.server_mail_configured && !user.isAnonymous;
         },
@@ -243,8 +242,11 @@ export default {
             return allowCachedJobs(user.preferences);
         },
         onHistoryChange() {
-            console.debug(`ToolForm::created - Loading history changes. [${this.id}]`);
-            this.onUpdate();
+            const Galaxy = getGalaxyInstance();
+            if (this.initialized && Galaxy && Galaxy.currHistoryPanel) {
+                console.debug(`ToolForm::onHistoryChange - Loading history changes. [${this.id}]`);
+                this.onUpdate();
+            }
         },
         onValidation(validationInternal) {
             this.validationInternal = validationInternal;
@@ -294,6 +296,9 @@ export default {
                     this.showLoading = false;
                 });
         },
+        onUpdatePreferredObjectStoreId(preferredObjectStoreId) {
+            this.preferredObjectStoreId = preferredObjectStoreId;
+        },
         onExecute(config, historyId) {
             if (this.validationInternal) {
                 this.validationScrollTo = this.validationInternal.slice();
@@ -317,6 +322,9 @@ export default {
             if (this.useCachedJobs) {
                 jobDef.inputs["use_cached_job"] = true;
             }
+            if (this.preferredObjectStoreId) {
+                jobDef.preferred_object_store_id = this.preferredObjectStoreId;
+            }
             console.debug("toolForm::onExecute()", jobDef);
             submitJob(jobDef).then(
                 (jobResponse) => {
@@ -329,9 +337,15 @@ export default {
                     const nJobs = jobResponse && jobResponse.jobs ? jobResponse.jobs.length : 0;
                     if (nJobs > 0) {
                         this.showForm = false;
-                        this.showSuccess = true;
                         this.jobDef = jobDef;
                         this.jobResponse = jobResponse;
+                        const response = {
+                            jobDef: this.jobDef,
+                            jobResponse: this.jobResponse,
+                            toolName: this.toolName,
+                        };
+                        this.saveLatestResponse(response);
+                        this.$router.push(`/jobs/submission/success`);
                     } else {
                         this.showError = true;
                         this.showForm = true;

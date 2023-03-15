@@ -18,6 +18,10 @@ import string
 import subprocess
 import sys
 from sys import platform as _platform
+from typing import (
+    List,
+    TYPE_CHECKING,
+)
 
 import yaml
 
@@ -29,6 +33,7 @@ from galaxy.tool_util.deps.conda_util import (
 from galaxy.tool_util.deps.docker_util import command_list as docker_command_list
 from galaxy.util import (
     commands,
+    download_to_file,
     safe_makedirs,
     shlex_join,
     unicodify,
@@ -39,13 +44,16 @@ from .util import (
     conda_build_target_str,
     create_repository,
     default_mulled_conda_channels_from_env,
-    get_file_from_recipe_url,
+    get_file_from_conda_package,
     PrintProgress,
     quay_repository,
     v1_image_name,
     v2_image_name,
 )
 from ..conda_compat import MetaData
+
+if TYPE_CHECKING:
+    from .util import Target
 
 log = logging.getLogger(__name__)
 
@@ -154,19 +162,23 @@ def get_conda_hits_for_targets(targets, conda_context):
     return [r for r in search_results if r]
 
 
-def base_image_for_targets(targets, conda_context):
+def base_image_for_targets(targets: List["Target"], conda_context: CondaContext) -> str:
+    """
+    determine base image (DEFAULT_BASE_IMAGE/DEFAULT_EXTENDED_BASE_IMAGE) for a
+    list of targets by inspecting the conda package (i.e. if the use of an
+    extended image is indicated in info/about.json or info/recipe/meta.yaml
+    """
     hits = get_conda_hits_for_targets(targets, conda_context)
     for hit in hits:
         try:
-            tarball = get_file_from_recipe_url(hit["url"])
-            meta_content = unicodify(tarball.extractfile("info/about.json").read())
-            if json.loads(meta_content).get("extra", {}).get("container", {}).get("extended-base", False):
+            name, content = get_file_from_conda_package(hit["url"], ["info/about.json", "info/recipe/meta.yaml"])
+            strcontent = unicodify(content)
+            if name == "info/about.json" and json.loads(strcontent).get("extra", {}).get("container", {}).get(
+                "extended-base", False
+            ):
                 return DEFAULT_EXTENDED_BASE_IMAGE
-            elif (
-                yaml.safe_load(unicodify(tarball.extractfile("info/recipe/meta.yaml").read()))
-                .get("extra", {})
-                .get("container", {})
-                .get("extended-base", False)
+            elif name == "info/recipe/meta.yaml" and (
+                yaml.safe_load(strcontent).get("extra", {}).get("container", {}).get("extended-base", False)
             ):
                 return DEFAULT_EXTENDED_BASE_IMAGE
         except Exception:
@@ -197,6 +209,8 @@ def mull_targets(
     repository_template=DEFAULT_REPOSITORY_TEMPLATE,
     dry_run=False,
     conda_version=None,
+    mamba_version=None,
+    use_mamba=False,
     verbose=False,
     binds=DEFAULT_BINDS,
     rebuild=True,
@@ -284,9 +298,28 @@ def mull_targets(
         involucro_args.extend(["-set", f"USER_ID={os.getuid()}:{os.getgid()}"])
     if test:
         involucro_args.extend(["-set", f"TEST={test}"])
-    if conda_version is not None:
-        verbose = "--verbose" if verbose else "--quiet"
-        involucro_args.extend(["-set", f"PREINSTALL=conda install {verbose} --yes conda={conda_version}"])
+
+    verbose = "--verbose" if verbose else "--quiet"
+    conda_bin = "conda"
+    if use_mamba:
+        conda_bin = "mamba"
+        if mamba_version is None:
+            mamba_version = ""
+    involucro_args.extend(["-set", "CONDA_BIN=%s" % conda_bin])
+    if conda_version is not None or mamba_version is not None:
+        mamba_test = "true"
+        specs = []
+        if conda_version is not None:
+            specs.append(f"conda={conda_version}")
+        if mamba_version is not None:
+            specs.append(f"mamba={mamba_version}")
+            if mamba_version == "" and not specs:
+                # If nothing but mamba without a specific version is requested,
+                # then only run conda install if mamba is not already installed.
+                mamba_test = "[ '[]' = \"$( conda list --json --full-name mamba )\" ]"
+        conda_install = f"""conda install {verbose} --yes {" ".join(f"'{spec}'" for spec in specs)}"""
+        involucro_args.extend(["-set", f"PREINSTALL=if {mamba_test} ; then {conda_install} ; fi"])
+
     involucro_args.append(command)
     if test_files:
         test_bind = []
@@ -357,7 +390,6 @@ class CondaInDockerContext(CondaContext):
 
 
 class InvolucroContext(installable.InstallableContext):
-
     installable_description = "Involucro"
 
     def __init__(self, involucro_bin=None, shell_exec=None, verbose="3"):
@@ -407,10 +439,12 @@ def ensure_installed(involucro_context, auto_init):
 def install_involucro(involucro_context):
     install_path = os.path.abspath(involucro_context.involucro_bin)
     involucro_context.involucro_bin = install_path
-    download_cmd = commands.download_command(involucro_link(), to=install_path)
-    exit_code = involucro_context.shell_exec(download_cmd)
-    if exit_code:
-        return exit_code
+
+    try:
+        download_to_file(involucro_link(), install_path)
+    except Exception:
+        log.exception(f"Failed to download involucro from url '{involucro_link()}'")
+        return 1
     try:
         os.chmod(install_path, os.stat(install_path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         return 0
@@ -455,6 +489,18 @@ def add_build_arguments(parser):
         dest="conda_version",
         default=None,
         help="Change to specified version of Conda before installing packages.",
+    )
+    parser.add_argument(
+        "--mamba-version",
+        dest="mamba_version",
+        default=None,
+        help="Change to specified version of Mamba before installing packages.",
+    )
+    parser.add_argument(
+        "--use-mamba",
+        dest="use_mamba",
+        action="store_true",
+        help="Use Mamba instead of Conda for package installation.",
     )
     parser.add_argument(
         "--oauth-token",
@@ -521,6 +567,10 @@ def args_to_mull_targets_kwds(args):
         kwds["repository_template"] = args.repository_template
     if hasattr(args, "conda_version"):
         kwds["conda_version"] = args.conda_version
+    if hasattr(args, "mamba_version"):
+        kwds["mamba_version"] = args.mamba_version
+    if hasattr(args, "use_mamba"):
+        kwds["use_mamba"] = args.use_mamba
     if hasattr(args, "oauth_token"):
         kwds["oauth_token"] = args.oauth_token
     if hasattr(args, "rebuild"):

@@ -1,5 +1,5 @@
 import { shallowMount } from "@vue/test-utils";
-import { getLocalVue } from "jest/helpers";
+import { getLocalVue } from "tests/jest/helpers";
 import flushPromises from "flush-promises";
 import MockAdapter from "axios-mock-adapter";
 
@@ -41,13 +41,11 @@ describe("Workflow Export", () => {
         let links = wrapper.findAll("a");
         expect(getHref(links.at(0))).toBe("/api/workflows/0/download?format=json-download");
         expect(getHref(links.at(1))).toBe("/workflow/gen_image?id=0");
-        expect(getHref(links.at(2))).toBe("http://www.myexperiment.org/");
         await wrapper.setProps({ id: "1" });
         await flushPromises();
         links = wrapper.findAll("a");
         expect(getHref(links.at(0))).toBe("http://localhost/u/owner/w/slug/json");
         expect(getHref(links.at(1))).toBe("/api/workflows/1/download?format=json-download");
         expect(getHref(links.at(2))).toBe("/workflow/gen_image?id=1");
-        expect(getHref(links.at(3))).toBe("http://www.myexperiment.org/");
     });
 });

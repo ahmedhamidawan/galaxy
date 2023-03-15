@@ -54,11 +54,11 @@ ResolvedContainerDescription = collections.namedtuple(
 
 
 class ContainerFinder:
-    def __init__(self, app_info, mulled_resolution_cache=None):
+    def __init__(self, app_info: "AppInfo", mulled_resolution_cache: Optional["Cache"] = None) -> None:
         self.app_info = app_info
         self.mulled_resolution_cache = mulled_resolution_cache
         self.default_container_registry = ContainerRegistry(app_info, mulled_resolution_cache=mulled_resolution_cache)
-        self.destination_container_registeries = {}
+        self.destination_container_registeries: Dict[str, "ContainerRegistry"] = {}
 
     def _enabled_container_types(self, destination_info):
         return [t for t in ALL_CONTAINER_TYPES if self.__container_type_enabled(t, destination_info)]
@@ -263,7 +263,7 @@ class ContainerRegistry:
         elif conf_file and not os.path.exists(conf_file):
             log.warning(f"Unable to find config file '{conf_file}'")
         elif conf_file:
-            log.debug("Loading container resolution config from file '{conf_file}'")
+            log.debug(f"Loading container resolution config from file '{conf_file}'")
             plugin_source = plugin_config.plugin_source_from_path(conf_file)
         if plugin_source:
             return self._parse_resolver_conf(plugin_source)

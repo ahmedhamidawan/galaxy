@@ -21,10 +21,7 @@ from fastapi import (
     Query,
     Request,
 )
-from starlette.responses import (
-    FileResponse,
-    StreamingResponse,
-)
+from starlette.responses import StreamingResponse
 
 from galaxy.schema import (
     FilterQueryParams,
@@ -40,6 +37,7 @@ from galaxy.schema.schema import (
     UpdateDatasetPermissionsPayload,
 )
 from galaxy.util.zipstream import ZipstreamWrapper
+from galaxy.webapps.base.api import GalaxyFileResponse
 from galaxy.webapps.galaxy.api import (
     depends,
     DependsOnTrans,
@@ -90,7 +88,7 @@ class FastAPIDatasets:
         trans=DependsOnTrans,
         history_id: Optional[DecodedDatabaseIdField] = Query(
             default=None,
-            description="Optional identifier of a History. Use it to restrict the search whithin a particular History.",
+            description="Optional identifier of a History. Use it to restrict the search within a particular History.",
         ),
         serialization_params: SerializationParams = Depends(query_serialization_params),
         filter_query_params: FilterQueryParams = Depends(get_filter_query_params),
@@ -213,6 +211,16 @@ class FastAPIDatasets:
         tags=["histories"],
         response_class=StreamingResponse,
     )
+    @router.head(
+        "/api/datasets/{history_content_id}/display",
+        summary="Check if dataset content can be previewed or downloaded.",
+    )
+    @router.head(
+        "/api/histories/{history_id}/contents/{history_content_id}/display",
+        name="history_contents_display",
+        summary="Check if dataset content can be previewed or downloaded.",
+        tags=["histories"],
+    )
     def display(
         self,
         request: Request,
@@ -250,14 +258,16 @@ class FastAPIDatasets:
         ),
     ):
         """Streams the dataset for download or the contents preview to be displayed in a browser."""
-        extra_params = get_query_parameters_from_request_excluding(request, {"preview", "filename", "to_ext", "raw"})
+        extra_params = get_query_parameters_from_request_excluding(
+            request, {"preview", "filename", "to_ext", "raw", "dataset"}
+        )
         display_data, headers = self.service.display(
-            trans, history_content_id, preview, filename, to_ext, raw, **extra_params
+            trans, history_content_id, preview=preview, filename=filename, to_ext=to_ext, raw=raw, **extra_params
         )
         if isinstance(display_data, IOBase):
             file_name = getattr(display_data, "name", None)
             if file_name:
-                return FileResponse(file_name, headers=headers)
+                return GalaxyFileResponse(file_name, headers=headers, method=request.method)
         elif isinstance(display_data, ZipstreamWrapper):
             return StreamingResponse(display_data.response(), headers=headers)
         elif isinstance(display_data, bytes):
@@ -268,12 +278,12 @@ class FastAPIDatasets:
         "/api/histories/{history_id}/contents/{history_content_id}/metadata_file",
         summary="Returns the metadata file associated with this history item.",
         tags=["histories"],
-        response_class=FileResponse,
+        response_class=GalaxyFileResponse,
     )
     @router.get(
         "/api/datasets/{history_content_id}/metadata_file",
         summary="Returns the metadata file associated with this history item.",
-        response_class=FileResponse,
+        response_class=GalaxyFileResponse,
     )
     def get_metadata_file(
         self,
@@ -289,7 +299,7 @@ class FastAPIDatasets:
         ),
     ):
         metadata_file_path, headers = self.service.get_metadata_file(trans, history_content_id, metadata_file)
-        return FileResponse(path=cast(str, metadata_file_path), headers=headers)
+        return GalaxyFileResponse(path=cast(str, metadata_file_path), headers=headers)
 
     @router.get(
         "/api/datasets/{dataset_id}",

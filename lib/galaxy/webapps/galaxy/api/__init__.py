@@ -173,7 +173,7 @@ class UrlBuilder:
         query_params = path_params.pop("query_params", None)
         try:
             if qualified:
-                url = self.request.url_for(name, **path_params)
+                url = str(self.request.url_for(name, **path_params))
             else:
                 url = self.request.app.url_path_for(name, **path_params)
             if query_params:
@@ -269,6 +269,7 @@ class BaseGalaxyAPIController(BaseAPIController):
 
 class RestVerb(str, Enum):
     get = "GET"
+    head = "HEAD"
     post = "POST"
     put = "PUT"
     patch = "PATCH"
@@ -290,7 +291,6 @@ class Router(InferringRouter):
         include_in_schema = kwd.pop("include_in_schema", True)
 
         def decorate_route(route, include_in_schema=include_in_schema):
-
             # Decorator solely exists to allow passing `route_class_override` to add_api_route
             def decorated_route(func):
                 self.add_api_route(
@@ -350,6 +350,9 @@ class Router(InferringRouter):
 
     def options(self, *args, **kwd):
         return self.wrap_with_alias(RestVerb.options, *args, **kwd)
+
+    def head(self, *args, **kwd):
+        return self.wrap_with_alias(RestVerb.head, *args, **kwd)
 
     def _handle_galaxy_kwd(self, kwd):
         require_admin = kwd.pop("require_admin", False)
@@ -448,7 +451,7 @@ If the tag is quoted, the attribute will be filtered exactly. If the tag is unqu
 generally a partial match will be used to filter the query (i.e. in terms of the implementation
 this means the database operation `ILIKE` will typically be used).
 
-Once the tagged filters are extracted from the search query, the remaing text is just
+Once the tagged filters are extracted from the search query, the remaining text is just
 used to search various documented attributes of the object.
 
 ## GitHub-style Tags Available

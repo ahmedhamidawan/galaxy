@@ -4,7 +4,11 @@
             <template v-if="!confirmURL">
                 <div class="col col-lg-6">
                     <b-alert :show="!!messageText" :variant="messageVariant">
-                        {{ messageText }}
+                        <span v-html="messageText" />
+                    </b-alert>
+                    <b-alert :show="!!connectExternalURL" variant="info">
+                        Reminder: Registration and usage of multiple accounts is tracked and such accounts are subject
+                        to termination and data deletion. Connect existing account now to avoid possible loss of data.
                     </b-alert>
                     <b-alert :show="!!connectExternalURL" variant="info">
                         Reminder: Registration and usage of multiple accounts is tracked and such accounts are subject
@@ -13,7 +17,7 @@
                     <b-form id="login" @submit.prevent="submitLogin()">
                         <b-card no-body>
                             <b-card-header>
-                                <span v-if="!connectExternalURL"> Welcome to Galaxy, please log in </span>
+                                <span v-if="!connectExternalURL">{{ headerWelcome }}</span>
                                 <span v-else>
                                     There already exists a user with the email <i>{{ connectExternalURL }}</i
                                     >. To associate this external login, you must first be logged in as that existing
@@ -23,7 +27,7 @@
                             <b-card-body>
                                 <div>
                                     <!-- standard internal galaxy login -->
-                                    <b-form-group label="Public Name or Email Address">
+                                    <b-form-group :label="labelNameAddress">
                                         <b-form-input
                                             v-if="!connectExternalURL"
                                             v-model="login"
@@ -36,16 +40,20 @@
                                             name="login"
                                             type="text" />
                                     </b-form-group>
-                                    <b-form-group label="Password">
+                                    <b-form-group :label="labelPassword">
                                         <b-form-input v-model="password" name="password" type="password" />
                                         <b-form-text>
-                                            Forgot password?
-                                            <a href="javascript:void(0)" role="button" @click.prevent="resetLogin">
+                                            <span v-localize>Forgot password?</span>
+                                            <a
+                                                v-localize
+                                                href="javascript:void(0)"
+                                                role="button"
+                                                @click.prevent="resetLogin">
                                                 Click here to reset your password.
                                             </a>
                                         </b-form-text>
                                     </b-form-group>
-                                    <b-button name="login" type="submit">Login</b-button>
+                                    <b-button v-localize name="login" type="submit">Login</b-button>
                                 </div>
                                 <div v-if="enableOidc">
                                     <!-- OIDC login-->
@@ -58,6 +66,7 @@
                                     <span v-if="allowUserCreation">
                                         <a
                                             id="register-toggle"
+                                            v-localize
                                             href="javascript:void(0)"
                                             role="button"
                                             @click.prevent="toggleLogin">
@@ -65,8 +74,8 @@
                                         </a>
                                     </span>
                                     <span v-else>
-                                        Registration for this Galaxy instance is disabled. Please contact an
-                                        administrator for assistance.
+                                        Registration for this Galaxy instance is disabled. Please contact an administrator
+                                        for assistance.
                                     </span>
                                 </span>
                                 <span v-else>
@@ -97,9 +106,10 @@
 import axios from "axios";
 import Vue from "vue";
 import BootstrapVue from "bootstrap-vue";
-import { safePath } from "utils/redirect";
+import { withPrefix } from "utils/redirect";
 import NewUserConfirmation from "./NewUserConfirmation";
 import ExternalLogin from "components/User/ExternalIdentities/ExternalLogin";
+import _l from "utils/localization";
 
 Vue.use(BootstrapVue);
 
@@ -149,6 +159,9 @@ export default {
             url: null,
             messageText: null,
             messageVariant: null,
+            headerWelcome: _l("Welcome to Galaxy, please log in"),
+            labelNameAddress: _l("Public Name or Email Address"),
+            labelPassword: _l("Password"),
         };
     },
     computed: {
@@ -161,7 +174,7 @@ export default {
             return urlParams.get("connect_external");
         },
         welcomeUrlWithRoot() {
-            return safePath(this.welcomeUrl);
+            return withPrefix(this.welcomeUrl);
         },
     },
     methods: {
@@ -177,7 +190,7 @@ export default {
                 redirect = localStorage.getItem("redirect_url");
             }
             axios
-                .post(safePath("/user/login"), {
+                .post(withPrefix("/user/login"), {
                     login: this.login,
                     password: this.password,
                     redirect: redirect,
@@ -188,13 +201,13 @@ export default {
                         alert(data.message);
                     }
                     if (data.expired_user) {
-                        window.location = safePath(`/root/login?expired_user=${data.expired_user}`);
+                        window.location = withPrefix(`/root/login?expired_user=${data.expired_user}`);
                     } else if (data.redirect) {
                         window.location = encodeURI(data.redirect);
                     } else if (this.connectExternalURL) {
                         window.location = safePath("/user/external_ids?connect_external=true");
                     } else {
-                        window.location = safePath("/");
+                        window.location = withPrefix("/");
                     }
                 })
                 .catch((error) => {
@@ -213,7 +226,7 @@ export default {
         },
         resetLogin() {
             axios
-                .post(safePath("/user/reset_password"), { email: this.login })
+                .post(withPrefix("/user/reset_password"), { email: this.login })
                 .then((response) => {
                     this.messageVariant = "info";
                     this.messageText = response.data.message;

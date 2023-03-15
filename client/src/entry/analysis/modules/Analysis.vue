@@ -9,11 +9,12 @@
             <div class="center-container">
                 <CenterFrame v-show="showCenter" id="galaxy_main" @load="onLoad" />
                 <div v-show="!showCenter" class="center-panel" style="display: block">
-                    <router-view class="h-100" :key="$route.fullPath" />
+                    <router-view :key="$route.fullPath" class="h-100" />
                 </div>
             </div>
         </div>
         <SidePanel v-if="showPanels" side="right" :current-panel="getHistoryIndex()" :current-panel-properties="{}" />
+        <DragAndDropModal />
     </div>
 </template>
 <script>
@@ -22,11 +23,13 @@ import HistoryIndex from "components/History/Index";
 import ToolBox from "components/Panels/ProviderAwareToolBox";
 import SidePanel from "components/Panels/SidePanel";
 import CenterFrame from "./CenterFrame";
+import DragAndDropModal from "components/Upload/DragAndDropModal";
 
 export default {
     components: {
         CenterFrame,
         SidePanel,
+        DragAndDropModal,
     },
     data() {
         return {

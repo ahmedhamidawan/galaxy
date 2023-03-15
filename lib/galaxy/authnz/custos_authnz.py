@@ -20,12 +20,12 @@ from galaxy.model import (
     User,
 )
 from galaxy.model.orm.util import add_object_to_object_session
-from ..authnz import IdentityProvider
+from . import IdentityProvider
 
 try:
     import pkce
 except ImportError:
-    pkce = None
+    pkce = None  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
 STATE_COOKIE_NAME = "galaxy-oidc-state"
@@ -262,7 +262,6 @@ class CustosAuthnz(IdentityProvider):
         return session
 
     def _fetch_token(self, oauth2_session, trans):
-
         if self.config.get("iam_client_secret"):
             # Custos uses the Keycloak client secret to get the token
             client_secret = self.config["iam_client_secret"]

@@ -56,12 +56,12 @@ from .test_logging import logging_config_file
 galaxy_root = galaxy_directory()
 DEFAULT_CONFIG_PREFIX = "GALAXY"
 GALAXY_TEST_DIRECTORY = os.path.join(galaxy_root, "test")
-GALAXY_TEST_FILE_DIR = "test-data,https://github.com/galaxyproject/galaxy-test-data.git"
+GALAXY_TEST_FILE_DIR = "test-data,url-location,https://github.com/galaxyproject/galaxy-test-data.git"
 TOOL_SHED_TEST_DATA = os.path.join(galaxy_root, "lib", "tool_shed", "test", "test_data")
 TEST_WEBHOOKS_DIR = os.path.join(galaxy_root, "test", "functional", "webhooks")
 FRAMEWORK_TOOLS_DIR = os.path.join(GALAXY_TEST_DIRECTORY, "functional", "tools")
 FRAMEWORK_UPLOAD_TOOL_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "upload_tool_conf.xml")
-FRAMEWORK_SAMPLE_TOOLS_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "samples_tool_conf.xml")
+FRAMEWORK_SAMPLE_TOOLS_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "sample_tool_conf.xml")
 FRAMEWORK_DATATYPES_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "sample_datatypes_conf.xml")
 MIGRATED_TOOL_PANEL_CONFIG = "config/migrated_tools_conf.xml"
 INSTALLED_TOOL_PANEL_CONFIGS = [os.environ.get("GALAXY_TEST_SHED_TOOL_CONF", "config/shed_tool_conf.xml")]
@@ -742,9 +742,13 @@ def launch_gravity(port, gxit_port=None, galaxy_config=None):
     if "interactivetools_proxy_host" not in galaxy_config:
         galaxy_config["interactivetools_proxy_host"] = f"localhost:{gxit_port}"
     # Can't use in-memory celery broker, just fall back to sqlalchemy
-    galaxy_config.update({"celery_conf": {"broker_url": None}})
+    celery_conf = galaxy_config.get("celery_conf", {})
+    celery_conf.update({"broker_url": None})
+    galaxy_config["celery_conf"] = celery_conf
+    state_dir = tempfile.mkdtemp(suffix="state")
     config = {
         "gravity": {
+            "log_dir": os.path.join(state_dir, "log"),
             "gunicorn": {"bind": f"localhost:{port}", "preload": "false"},
             "gx_it_proxy": {
                 "enable": galaxy_config.get("interactivetools_enable", False),
@@ -755,18 +759,16 @@ def launch_gravity(port, gxit_port=None, galaxy_config=None):
         },
         "galaxy": galaxy_config,
     }
-    state_dir = tempfile.mkdtemp(suffix="state")
     with tempfile.NamedTemporaryFile("w", dir=state_dir, delete=False, suffix=".galaxy.yml") as config_fh:
         json.dump(config, config_fh)
     with tempfile.NamedTemporaryFile(delete=True) as socket:
         supervisord_socket = socket.name
     gravity_env = os.environ.copy()
     gravity_env["SUPERVISORD_SOCKET"] = supervisord_socket
-    subprocess.check_output(["galaxyctl", "--state-dir", state_dir, "register", config_fh.name], env=gravity_env)
-    subprocess.check_output(["galaxyctl", "--state-dir", state_dir, "update"], env=gravity_env)
-    subprocess.check_output(["galaxyctl", "--state-dir", state_dir, "start"], env=gravity_env)
+    subprocess.check_output(["galaxyctl", "--config-file", config_fh.name, "update"], env=gravity_env)
+    subprocess.check_output(["galaxyctl", "--config-file", config_fh.name, "start"], env=gravity_env)
     return state_dir, lambda: subprocess.check_output(
-        ["galaxyctl", "--state-dir", state_dir, "shutdown"], env=gravity_env
+        ["galaxyctl", "--config-file", config_fh.name, "shutdown"], env=gravity_env
     )
 
 
@@ -832,7 +834,7 @@ class TestDriver:
         self.server_wrappers = []
         self.temp_directories = []
 
-    def setup(self):
+    def setup(self, config_object=None):
         """Called before tests are built."""
 
     def build_tests(self):
@@ -858,7 +860,7 @@ class TestDriver:
             )
         self.server_wrappers = []
 
-    def mkdtemp(self):
+    def mkdtemp(self) -> str:
         """Return a temp directory that is properly cleaned up or not based on the config."""
         temp_directory = tempfile.mkdtemp()
         self.temp_directories.append(temp_directory)
