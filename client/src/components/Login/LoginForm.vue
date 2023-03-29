@@ -10,7 +10,15 @@
                         There already exists a user with the email <i>{{ connectExternalEmail }}</i>. In order to associate this
                         account with <i>{{ connectExternalLabel }}</i>, you must first login to your existing account.
                     </b-alert>
+                    <b-alert :show="!!connectExternalProvider" variant="info">
+                        There already exists a user with the email <i>{{ connectExternalEmail }}</i>. In order to associate this
+                        account with <i>{{ connectExternalLabel }}</i>, you must first login to your existing account.
+                    </b-alert>
                     <b-form id="login" @submit.prevent="submitLogin()">
+                        <b-card no-body>
+                            <b-card-header v-if="!connectExternalProvider">
+                                <span>{{ headerWelcome }}</span>
+                            </b-card-header>
                         <b-card no-body>
                             <b-card-header v-if="!connectExternalProvider">
                                 <span>{{ headerWelcome }}</span>
@@ -18,7 +26,7 @@
                             <b-card-body>
                                 <div>
                                     <!-- standard internal galaxy login -->
-                                    <b-form-group :label="labelNameAddress">
+                                    <b-form-group label="Public Name or Email Address">
                                         <b-form-input
                                             v-if="!connectExternalProvider"
                                             v-model="login"
@@ -49,6 +57,7 @@
                                 <div v-if="enableOidc">
                                     <!-- OIDC login-->
                                     <external-login :login_page="true" :exclude_idps="[connectExternalProvider]"/>
+                                    <external-login :login_page="true" :exclude_idps="[connectExternalProvider]"/>
                                 </div>
                             </b-card-body>
                             <b-card-footer>
@@ -57,7 +66,6 @@
                                     <span v-if="allowUserCreation">
                                         <a
                                             id="register-toggle"
-                                            v-localize
                                             href="javascript:void(0)"
                                             role="button"
                                             @click.prevent="toggleLogin">
@@ -65,8 +73,8 @@
                                         </a>
                                     </span>
                                     <span v-else>
-                                        Registration for this Galaxy instance is disabled. Please contact an administrator
-                                        for assistance.
+                                        Registration for this Galaxy instance is disabled. Please contact an
+                                        administrator for assistance.
                                     </span>
                                 </span>
                                 <span v-else>
@@ -172,6 +180,18 @@ export default {
             var urlParams = new URLSearchParams(window.location.search);
             return urlParams.get("connect_external_label");
         },
+        connectExternalEmail() {
+            var urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get("connect_external_email");
+        },
+        connectExternalProvider() {
+            var urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get("connect_external_provider");
+        },
+        connectExternalLabel() {
+            var urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get("connect_external_label");
+        },
         welcomeUrlWithRoot() {
             return withPrefix(this.welcomeUrl);
         },
@@ -182,6 +202,9 @@ export default {
         },
         submitLogin() {
             let redirect = this.redirect;
+            if (this.connectExternalEmail) {
+                this.login = this.connectExternalEmail;
+            }
             if (this.connectExternalEmail) {
                 this.login = this.connectExternalEmail;
             }
@@ -205,6 +228,8 @@ export default {
                         window.location = encodeURI(data.redirect);
                     } else if (this.connectExternalProvider) {
                         window.location = withPrefix("/user/external_ids?connect_external=true");
+                    } else if (this.connectExternalProvider) {
+                        window.location = withPrefix("/user/external_ids?connect_external=true");
                     } else {
                         window.location = withPrefix("/");
                     }
@@ -212,6 +237,12 @@ export default {
                 .catch((error) => {
                     this.messageVariant = "danger";
                     const message = error.response.data && error.response.data.err_msg;
+                    if (this.connectExternalProvider && message && message.toLowerCase().includes("invalid")) {
+                        this.messageText =
+                            message + " Try logging in to the existing account through an external provider below.";
+                    } else {
+                        this.messageText = message || "Login failed for an unknown reason.";
+                    }
                     if (this.connectExternalProvider && message && message.toLowerCase().includes("invalid")) {
                         this.messageText =
                             message + " Try logging in to the existing account through an external provider below.";
@@ -235,6 +266,9 @@ export default {
                     const message = error.response.data && error.response.data.err_msg;
                     this.messageText = message || "Password reset failed for an unknown reason.";
                 });
+        },
+        returnToLogin() {
+            window.location = withPrefix("/login/start");
         },
         returnToLogin() {
             window.location = withPrefix("/login/start");

@@ -15,6 +15,7 @@ from oauthlib.common import generate_nonce
 from requests_oauthlib import OAuth2Session
 
 from galaxy import util
+from galaxy import util
 from galaxy.model import (
     CustosAuthnzToken,
     User,
@@ -44,6 +45,7 @@ class CustosAuthnz(IdentityProvider):
         self.config = {"provider": provider}
         self.config["verify_ssl"] = oidc_config["VERIFY_SSL"]
         self.config["url"] = oidc_backend_config["url"]
+        self.config['label'] = oidc_backend_config.get('label', provider.capitalize())
         self.config['label'] = oidc_backend_config.get('label', provider.capitalize())
         self.config["client_id"] = oidc_backend_config["client_id"]
         self.config["client_secret"] = oidc_backend_config["client_secret"]
@@ -152,6 +154,7 @@ class CustosAuthnz(IdentityProvider):
                             f"&connect_external_label={self.config['label']}")
                         return login_redirect_url, None
                 elif self.config["provider"] == "custos":
+                    login_redirect_url = f"{login_redirect_url}login/start?confirm=true&custos_token={json.dumps(token)}"
                     login_redirect_url = f"{login_redirect_url}login/start?confirm=true&custos_token={json.dumps(token)}"
                     return login_redirect_url, None
                 else:

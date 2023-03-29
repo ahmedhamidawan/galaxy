@@ -1070,6 +1070,36 @@ export interface paths {
         /** Determine if specified storage request ID is ready for download. */
         get: operations["is_ready_api_short_term_storage__storage_request_id__ready_get"];
     };
+    "/api/storage/datasets": {
+        /**
+         * Purges a set of datasets by ID from disk. The datasets must be owned by the user.
+         * @description **Warning**: This operation cannot be undone. All objects will be deleted permanently from the disk.
+         */
+        delete: operations["cleanup_datasets_api_storage_datasets_delete"];
+    };
+    "/api/storage/datasets/discarded": {
+        /** Returns discarded datasets owned by the given user. The results can be paginated. */
+        get: operations["discarded_datasets_api_storage_datasets_discarded_get"];
+    };
+    "/api/storage/datasets/discarded/summary": {
+        /** Returns information with the total storage space taken by discarded datasets owned by the given user. */
+        get: operations["discarded_datasets_summary_api_storage_datasets_discarded_summary_get"];
+    };
+    "/api/storage/histories": {
+        /**
+         * Purges a set of histories by ID. The histories must be owned by the user.
+         * @description **Warning**: This operation cannot be undone. All objects will be deleted permanently from the disk.
+         */
+        delete: operations["cleanup_histories_api_storage_histories_delete"];
+    };
+    "/api/storage/histories/discarded": {
+        /** Returns all discarded histories associated with the given user. */
+        get: operations["discarded_histories_api_storage_histories_discarded_get"];
+    };
+    "/api/storage/histories/discarded/summary": {
+        /** Returns information with the total storage space taken by discarded histories associated with the given user. */
+        get: operations["discarded_histories_summary_api_storage_histories_discarded_summary_get"];
+    };
     "/api/tags": {
         /**
          * Apply a new set of tags to an item.
@@ -1161,8 +1191,23 @@ export interface paths {
          */
         post: operations["update_tour_api_tours__tour_id__post"];
     };
+    "/api/users/current/recalculate_disk_usage": {
+        /**
+         * Triggers a recalculation of the current user disk usage.
+         * @description This route will be removed in a future version.
+         *
+         * Please use `/api/users/current/recalculate_disk_usage` instead.
+         */
+        put: operations["recalculate_disk_usage_api_users_current_recalculate_disk_usage_put"];
+    };
     "/api/users/recalculate_disk_usage": {
-        /** Triggers a recalculation of the current user disk usage. */
+        /**
+         * Triggers a recalculation of the current user disk usage.
+         * @deprecated
+         * @description This route will be removed in a future version.
+         *
+         * Please use `/api/users/current/recalculate_disk_usage` instead.
+         */
         put: operations["recalculate_disk_usage_api_users_recalculate_disk_usage_put"];
     };
     "/api/users/{user_id}/api_key": {
@@ -1587,6 +1632,30 @@ export interface components {
              * @example sha-256
              */
             type: string;
+        };
+        /**
+         * CleanableItemsSummary
+         * @description Base model definition with common configuration used by all derived models.
+         */
+        CleanableItemsSummary: {
+            /**
+             * Total Items
+             * @description The total number of items that could be purged.
+             */
+            total_items: number;
+            /**
+             * Total Size
+             * @description The total size in bytes that can be recovered by purging all the items.
+             */
+            total_size: number;
+        };
+        /**
+         * CleanupStorageItemsRequest
+         * @description Base model definition with common configuration used by all derived models.
+         */
+        CleanupStorageItemsRequest: {
+            /** Item Ids */
+            item_ids: string[];
         };
         /**
          * CollectionElementIdentifier
@@ -6660,6 +6729,33 @@ export interface components {
          */
         Src: "url" | "pasted" | "files" | "path" | "composite" | "ftp_import" | "server_dir";
         /**
+         * StorageItemCleanupError
+         * @description Base model definition with common configuration used by all derived models.
+         */
+        StorageItemCleanupError: {
+            /** Error */
+            error: string;
+            /**
+             * Item Id
+             * @example 0123456789ABCDEF
+             */
+            item_id: string;
+        };
+        /**
+         * StorageItemsCleanupResult
+         * @description Base model definition with common configuration used by all derived models.
+         */
+        StorageItemsCleanupResult: {
+            /** Errors */
+            errors: components["schemas"]["StorageItemCleanupError"][];
+            /** Success Item Count */
+            success_item_count: number;
+            /** Total Free Bytes */
+            total_free_bytes: number;
+            /** Total Item Count */
+            total_item_count: number;
+        };
+        /**
          * StoreExportPayload
          * @description Base model definition with common configuration used by all derived models.
          */
@@ -6688,6 +6784,35 @@ export interface components {
              */
             model_store_format?: components["schemas"]["ModelStoreFormat"];
         };
+        /**
+         * StoredItem
+         * @description Base model definition with common configuration used by all derived models.
+         */
+        StoredItem: {
+            /**
+             * Id
+             * @example 0123456789ABCDEF
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Size */
+            size: number;
+            /** Type */
+            type: "history" | "dataset";
+            /**
+             * Update Time
+             * Format: date-time
+             * @description The last time and date this item was updated.
+             */
+            update_time: string;
+        };
+        /**
+         * StoredItemOrderBy
+         * @description Available options for sorting Stored Items results.
+         * @enum {string}
+         */
+        StoredItemOrderBy: "name-asc" | "name-dsc" | "size-asc" | "size-dsc" | "update_time-asc" | "update_time-dsc";
         /**
          * SuitableConverter
          * @description Base model definition with common configuration used by all derived models.
@@ -13375,6 +13500,176 @@ export interface operations {
             };
         };
     };
+    cleanup_datasets_api_storage_datasets_delete: {
+        /**
+         * Purges a set of datasets by ID from disk. The datasets must be owned by the user.
+         * @description **Warning**: This operation cannot be undone. All objects will be deleted permanently from the disk.
+         */
+        parameters?: {
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CleanupStorageItemsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["StorageItemsCleanupResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discarded_datasets_api_storage_datasets_discarded_get: {
+        /** Returns discarded datasets owned by the given user. The results can be paginated. */
+        parameters?: {
+            /** @description Starts at the beginning skip the first ( offset - 1 ) items and begin returning at the Nth item */
+            /** @description The maximum number of items to return. */
+            /** @description String containing one of the valid ordering attributes followed by '-asc' or '-dsc' for ascending and descending order respectively. */
+            query?: {
+                offset?: number;
+                limit?: number;
+                order?: components["schemas"]["StoredItemOrderBy"];
+            };
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["StoredItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discarded_datasets_summary_api_storage_datasets_discarded_summary_get: {
+        /** Returns information with the total storage space taken by discarded datasets owned by the given user. */
+        parameters?: {
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["CleanableItemsSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cleanup_histories_api_storage_histories_delete: {
+        /**
+         * Purges a set of histories by ID. The histories must be owned by the user.
+         * @description **Warning**: This operation cannot be undone. All objects will be deleted permanently from the disk.
+         */
+        parameters?: {
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CleanupStorageItemsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["StorageItemsCleanupResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discarded_histories_api_storage_histories_discarded_get: {
+        /** Returns all discarded histories associated with the given user. */
+        parameters?: {
+            /** @description Starts at the beginning skip the first ( offset - 1 ) items and begin returning at the Nth item */
+            /** @description The maximum number of items to return. */
+            /** @description String containing one of the valid ordering attributes followed by '-asc' or '-dsc' for ascending and descending order respectively. */
+            query?: {
+                offset?: number;
+                limit?: number;
+                order?: components["schemas"]["StoredItemOrderBy"];
+            };
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["StoredItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discarded_histories_summary_api_storage_histories_discarded_summary_get: {
+        /** Returns information with the total storage space taken by discarded histories associated with the given user. */
+        parameters?: {
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["CleanableItemsSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_api_tags_put: {
         /**
          * Apply a new set of tags to an item.
@@ -13830,8 +14125,13 @@ export interface operations {
             };
         };
     };
-    recalculate_disk_usage_api_users_recalculate_disk_usage_put: {
-        /** Triggers a recalculation of the current user disk usage. */
+    recalculate_disk_usage_api_users_current_recalculate_disk_usage_put: {
+        /**
+         * Triggers a recalculation of the current user disk usage.
+         * @description This route will be removed in a future version.
+         *
+         * Please use `/api/users/current/recalculate_disk_usage` instead.
+         */
         parameters?: {
             /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
             header?: {
@@ -13839,7 +14139,44 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Successful Response */
+            /** @description The asynchronous task summary to track the task state. */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["AsyncTaskResultSummary"];
+                };
+            };
+            /** @description The background task was submitted but there is no status tracking ID available. */
+            204: never;
+            /** @description Validation Error */
+            422: {
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recalculate_disk_usage_api_users_recalculate_disk_usage_put: {
+        /**
+         * Triggers a recalculation of the current user disk usage.
+         * @deprecated
+         * @description This route will be removed in a future version.
+         *
+         * Please use `/api/users/current/recalculate_disk_usage` instead.
+         */
+        parameters?: {
+            /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+            header?: {
+                "run-as"?: string;
+            };
+        };
+        responses: {
+            /** @description The asynchronous task summary to track the task state. */
+            200: {
+                content: {
+                    "application/json": components["schemas"]["AsyncTaskResultSummary"];
+                };
+            };
+            /** @description The background task was submitted but there is no status tracking ID available. */
             204: never;
             /** @description Validation Error */
             422: {
