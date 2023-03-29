@@ -53,7 +53,9 @@ import Toast from "components/Toast";
 import ConfirmDialog from "components/ConfirmDialog";
 import UploadModal from "components/Upload/UploadModal.vue";
 import { ref } from "vue";
+import { sanitize } from "dompurify";
 import { setToastComponentRef } from "composables/toast";
+import { Toast as Toast_ } from "composables/toast";
 import { setConfirmDialogComponentRef } from "composables/confirmDialog";
 import { setGlobalUploadModal } from "composables/globalUploadModal";
 import { useCurrentTheme } from "@/composables/user";
@@ -123,6 +125,10 @@ export default {
         Galaxy.currHistoryPanel = new HistoryPanelProxy();
         Galaxy.modal = new Modal.View();
         Galaxy.frame = this.windowManager;
+
+        const params = new URLSearchParams(window.location.search);
+        const notificationMessage = sanitize(params.get("notification"));
+        Toast_.success(notificationMessage);
     },
     created() {
         window.onbeforeunload = () => {

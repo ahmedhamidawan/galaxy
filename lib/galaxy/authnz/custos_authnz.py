@@ -147,8 +147,8 @@ class CustosAuthnz(IdentityProvider):
                         log.info(message)
                         login_redirect_url = (
                             f"{login_redirect_url}login/start"
-                            f"?connect_external_email={email}"
-                            f"&connect_external_provider={self.config['provider']}"
+                            f"?connect_external_provider={self.config['provider']}"
+                            f"&connect_external_email={email}"
                             f"&connect_external_label={self.config['label']}")
                         return login_redirect_url, None
                 elif self.config["provider"] == "custos":
@@ -160,6 +160,7 @@ class CustosAuthnz(IdentityProvider):
                     if trans.app.config.user_activation_on:
                         trans.app.user_manager.send_activation_email(trans, email, username)
 
+            # Create a token to link this identity with an existing account
             custos_authnz_token = CustosAuthnzToken(
                 user=user,
                 external_user_id=user_id,
@@ -170,15 +171,23 @@ class CustosAuthnz(IdentityProvider):
                 expiration_time=expiration_time,
                 refresh_expiration_time=refresh_expiration_time,
             )
+            label = self.config['label']
+            redirect_url = (
+                f"/?notification=Your%20{label}%20identity%20has%20been%20linked"
+                "%20to%20your%20Galaxy%20account.")
         else:
+            # Identity is already linked to account - login as usual
             custos_authnz_token.access_token = access_token
             custos_authnz_token.id_token = id_token
             custos_authnz_token.refresh_token = refresh_token
             custos_authnz_token.expiration_time = expiration_time
             custos_authnz_token.refresh_expiration_time = refresh_expiration_time
+            redirect_url = "/"
+
         trans.sa_session.add(custos_authnz_token)
         trans.sa_session.flush()
-        return "/", custos_authnz_token.user
+
+        return redirect_url, custos_authnz_token.user
 
     def create_user(self, token, trans, login_redirect_url):
         token_dict = json.loads(token)
