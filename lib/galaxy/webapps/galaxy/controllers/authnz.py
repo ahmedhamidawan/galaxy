@@ -106,7 +106,6 @@ class OIDC(JSAppLauncher):
                 "the Galaxy instance admin".format(provider)
             )
         try:
-            print("authnz.callback triggered")
             success, message, (redirect_url, user) = trans.app.authnz_manager.callback(
                 provider,
                 kwargs.get("state", " "),
@@ -125,8 +124,6 @@ class OIDC(JSAppLauncher):
             return trans.response.send_redirect(url_for(redirect_url))
         elif redirect_url is None:
             redirect_url = url_for("/")
-
-        print("authnz.callback redirect_url:", redirect_url)
 
         user = user if user is not None else trans.user
         if user is None:
