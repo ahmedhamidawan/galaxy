@@ -154,8 +154,8 @@ class CustosAuthnz(IdentityProvider):
                             f"&connect_external_email={email}"
                             f"&connect_external_label={self.config['label']}")
                         return login_redirect_url, None
-                elif self.config["provider"] == "custos":
-                    login_redirect_url = f"{login_redirect_url}login/start?confirm=true&custos_token={json.dumps(token)}"
+                elif self.config["provider"] == "custos" or self.config["provider"] == "keycloak":
+                    login_redirect_url = f"{login_redirect_url}login/start?confirm=true&provider_token={json.dumps(token)}&provider={self.config['provider']}"
                     return login_redirect_url, None
                 else:
                     username = self._username_from_userinfo(trans, userinfo)
@@ -175,7 +175,7 @@ class CustosAuthnz(IdentityProvider):
                 refresh_expiration_time=refresh_expiration_time,
             )
             label = self.config['label']
-            if existing_user:
+            if existing_user != user:
                 redirect_url = (
                     f"{login_redirect_url}user/external_ids"
                     f"?email_exists={email}"

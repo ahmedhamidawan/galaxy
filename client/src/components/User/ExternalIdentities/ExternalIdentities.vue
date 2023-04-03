@@ -5,7 +5,7 @@
             >, to your preferred external provider.
         </b-alert>
         <b-alert :show="!!existingEmail" variant="warning">
-            Note: There already exists a user with the email <i>{{ existingEmail }}</i>. Your account has been linked to the external identity with the same email.
+            Note: There already exists another user with the email <i>{{ existingEmail }}</i>. Your account has been linked to the external identity with the same email.
         </b-alert>
         <header>
             <b-alert
