@@ -114,6 +114,10 @@ export function fetchMenu(options = {}) {
                 hidden: !options.helpsite_url,
             },
             {
+                title: _l("Help Wizard"),
+                url: "/wizard",
+            },
+            {
                 title: _l("Support"),
                 url: options.support_url,
                 target: "_blank",
