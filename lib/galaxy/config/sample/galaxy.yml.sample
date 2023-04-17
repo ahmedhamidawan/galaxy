@@ -180,6 +180,9 @@ gravity:
     # Set to true to start gx-it-proxy
     # enable: false
 
+    # gx-it-proxy version
+    # version: '>=0.0.5'
+
     # Public-facing IP of the proxy
     # ip: localhost
 
@@ -1243,11 +1246,6 @@ galaxy:
   # The value of this option will be resolved with respect to
   # <config_dir>.
   #trs_servers_config_file: trs_servers_conf.yml
-
-  # Server-wide default selection to use the legacy history during the
-  # transition period, after which this option will disappear.  Users
-  # will remain able to swap back and forth per their preference.
-  #use_legacy_history: false
 
   # Location of the configuration file containing extra user
   # preferences.

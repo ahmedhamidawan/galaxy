@@ -7,8 +7,9 @@
                         <span v-html="messageText" />
                     </b-alert>
                     <b-alert :show="!!connectExternalProvider" variant="info">
-                        There already exists a user with the email <i>{{ connectExternalEmail }}</i>. In order to associate this
-                        account with <i>{{ connectExternalLabel }}</i>, you must first login to your existing account.
+                        There already exists a user with the email <i>{{ connectExternalEmail }}</i> . In order to
+                        associate this account with <i>{{ connectExternalLabel }}</i>
+                        , you must first login to your existing account.
                     </b-alert>
                     <b-form id="login" @submit.prevent="submitLogin()">
                         <b-card no-body>
@@ -18,7 +19,7 @@
                             <b-card-body>
                                 <div>
                                     <!-- standard internal galaxy login -->
-                                    <b-form-group label="Public Name or Email Address">
+                                    <b-form-group :label="labelNameAddress">
                                         <b-form-input
                                             v-if="!connectExternalProvider"
                                             v-model="login"
@@ -48,7 +49,7 @@
                                 </div>
                                 <div v-if="enableOidc">
                                     <!-- OIDC login-->
-                                    <external-login :login_page="true" :exclude_idps="[connectExternalProvider]"/>
+                                    <external-login :login_page="true" :exclude_idps="[connectExternalProvider]" />
                                 </div>
                             </b-card-body>
                             <b-card-footer>
@@ -57,6 +58,7 @@
                                     <span v-if="allowUserCreation">
                                         <a
                                             id="register-toggle"
+                                            v-localize
                                             href="javascript:void(0)"
                                             role="button"
                                             @click.prevent="toggleLogin">
