@@ -9,6 +9,7 @@ import {
     deleteHistoryById,
     getCurrentHistoryFromServer,
     getHistoryByIdFromServer,
+    getHistoryCount,
     getHistoryList,
     secureHistoryOnServer,
     setCurrentHistoryOnServer,
@@ -17,6 +18,7 @@ import {
 
 export type HistorySummary = components["schemas"]["HistorySummary"];
 
+const PAGINATION_LENGTH = 7;
 const isLoadingHistory = new Set();
 
 export const useHistoryStore = defineStore(
@@ -30,6 +32,10 @@ export const useHistoryStore = defineStore(
 
         const histories = computed(() => {
             return Object.values(storedHistories.value).sort(sortByObjectProp("name"));
+        });
+
+        const historiesOffset = computed(() => {
+            return histories.value.length;
         });
 
         const getFirstHistoryId = computed(() => {
@@ -67,13 +73,23 @@ export const useHistoryStore = defineStore(
 
         const getHistoryNameById = computed(() => {
             return (historyId: string) => {
-                const history = storedHistories.value[historyId];
+                let history = storedHistories.value[historyId];
                 if (history) {
                     return history.name;
                 } else {
+                    loadHistoryById(historyId);
+                    history = storedHistories.value[historyId];
+                    if (history) {
+                        return history.name;
+                    }
                     return "...";
                 }
             };
+        });
+
+        const getTotalHistoryCount = computed(async () => {
+            const count = await getHistoryCount();
+            return count;
         });
 
         async function setCurrentHistory(historyId: string) {
@@ -174,10 +190,15 @@ export const useHistoryStore = defineStore(
             selectHistory(history as HistorySummary);
         }
 
-        async function loadHistories() {
+        async function loadHistories(paginate: boolean = true) {
             if (!historiesLoading.value) {
+                if (paginate && historiesOffset.value >= (await getTotalHistoryCount.value)) {
+                    return;
+                }
                 setHistoriesLoading(true);
-                await getHistoryList()
+                const limit = paginate ? PAGINATION_LENGTH : null;
+                const offset = paginate ? historiesOffset.value : 0;
+                await getHistoryList(offset, limit)
                     .then((histories) => setHistories(histories))
                     .catch((error) => console.warn(error))
                     .finally(() => {
@@ -216,6 +237,7 @@ export const useHistoryStore = defineStore(
             pinnedHistories,
             getHistoryById,
             getHistoryNameById,
+            getTotalHistoryCount,
             setCurrentHistory,
             setCurrentHistoryId,
             setFilterText,
@@ -234,6 +256,7 @@ export const useHistoryStore = defineStore(
             secureHistory,
             updateHistory,
             historiesLoading,
+            historiesOffset,
         };
     },
     {

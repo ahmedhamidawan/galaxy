@@ -111,11 +111,10 @@ export default {
         },
     },
     created() {
-        this.loadHistories();
         this.load();
     },
     methods: {
-        ...mapActions(useHistoryStore, ["loadHistories", "applyFilters"]),
+        ...mapActions(useHistoryStore, ["applyFilters"]),
         load(concat = false) {
             this.loading = true;
             getDatasets({
