@@ -190,7 +190,7 @@ export const useHistoryStore = defineStore(
             selectHistory(history as HistorySummary);
         }
 
-        async function loadHistories(paginate: boolean = true) {
+        async function loadHistories(paginate = true) {
             if (!historiesLoading.value) {
                 if (paginate && historiesOffset.value >= (await getTotalHistoryCount.value)) {
                     return;
