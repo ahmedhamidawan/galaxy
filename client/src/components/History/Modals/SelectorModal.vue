@@ -179,10 +179,8 @@ function openInMulti(history: HistorySummary) {
     modal.value?.hide();
 }
 
-/**
- * For active filter:
- * - Problem: How do you assess all items for that filter have been loaded?
- *
+/** Loads (paginates) for more histories
+ * @param noScroll When set to true, we pass the filter as queryString to loadHistories()
  */
 async function loadMore(noScroll = false) {
     if (!busy.value && (noScroll || (!noScroll && !filter.value && !allLoaded.value))) {
