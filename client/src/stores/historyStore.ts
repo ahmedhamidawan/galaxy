@@ -18,7 +18,7 @@ import {
 
 export type HistorySummary = components["schemas"]["HistorySummary"];
 
-const PAGINATION_LENGTH = 10;
+const PAGINATION_LIMIT = 10;
 const isLoadingHistory = new Set();
 
 export const useHistoryStore = defineStore(
@@ -217,7 +217,7 @@ export const useHistoryStore = defineStore(
                             setHistoriesLoading(false);
                             return;
                         }
-                        limit = PAGINATION_LENGTH;
+                        limit = PAGINATION_LIMIT;
                     } else {
                         historiesOffset.value = 0;
                     }
