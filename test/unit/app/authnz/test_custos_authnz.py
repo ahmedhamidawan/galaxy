@@ -66,6 +66,7 @@ class TestCustosAuthnz(TestCase):
                 "redirect_uri": "https://test-redirect-uri",
                 "realm": "test-realm",
                 "label": "test-identity-provider",
+                "require_create_confirmation": False,
             },
         )
         self.setupMocks()
@@ -253,6 +254,7 @@ class TestCustosAuthnz(TestCase):
         assert self.custos_authnz.config["token_endpoint"] == "https://test-token-endpoint"
         assert self.custos_authnz.config["userinfo_endpoint"] == "https://test-userinfo-endpoint"
         assert self.custos_authnz.config["label"] == "test-identity-provider"
+        assert self.custos_authnz.config["require_create_confirmation"] is False
 
     def test_authenticate_set_state_cookie(self):
         """Verify that authenticate() sets a state cookie."""
@@ -378,6 +380,20 @@ class TestCustosAuthnz(TestCase):
         assert not self._get_userinfo_called
 
     def test_callback_user_not_created_when_does_not_exists(self):
+        self.custos_authnz = custos_authnz.CustosAuthnz(
+            "Keycloak",
+            {"VERIFY_SSL": True},
+            {
+                "url": self._get_idp_url(),
+                "client_id": "test-client-id",
+                "client_secret": "test-client-secret",
+                "redirect_uri": "https://test-redirect-uri",
+                "realm": "test-realm",
+                "label": "test-identity-provider",
+                "require_create_confirmation": True,
+            },
+        )
+        self.setupMocks()
         self.trans.set_cookie(value=self.test_state, name=custos_authnz.STATE_COOKIE_NAME)
         self.trans.set_cookie(value=self.test_nonce, name=custos_authnz.NONCE_COOKIE_NAME)
 
@@ -393,7 +409,7 @@ class TestCustosAuthnz(TestCase):
         )
         assert user is None
         assert "http://localhost:8000/login/start?confirm=true&provider_token=" in login_redirect_url
-        assert "&provider=custos" in login_redirect_url
+        assert "&provider=keycloak" in login_redirect_url
         assert self._fetch_token_called
 
     def test_create_user(self):
