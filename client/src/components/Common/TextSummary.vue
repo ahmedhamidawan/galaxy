@@ -5,14 +5,32 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed } from "vue";
 
 const props = defineProps({
+    /** The text to summarize */
     description: {
         type: String,
         required: true,
     },
+    /** If `true`, doesn't let unexpanded text go beyond height of one line */
+    oneLineSummary: {
+        type: Boolean,
+        default: false,
+    },
+    /** If `true`, doesn't show expand/collapse buttons */
+    noExpand: {
+        type: Boolean,
+        default: false,
+    },
+    /** The component to use for the summary, default = `<p>` */
+    component: {
+        type: String,
+        default: "p",
+    },
+    /** Used as the toggle for expanding summary */
     showDetails: {
         type: Boolean,
         default: false,
     },
+    /** The maximum length of the unexpanded text / summary */
     maxLength: {
         type: Number,
         default: 150,
@@ -47,8 +65,11 @@ const text = computed(() =>
 
 <template>
     <div>
-        {{ text }}
-        <span v-if="summary">
+        <component :is="props.component" v-if="props.oneLineSummary" class="one-line-summary">{{
+            props.description
+        }}</component>
+        <span v-else>{{ text }}</span>
+        <span v-if="!noExpand && summary">
             <a
                 v-if="!propShowDetails"
                 class="text-summary-expand"
@@ -62,3 +83,12 @@ const text = computed(() =>
         </span>
     </div>
 </template>
+
+<style scoped>
+.one-line-summary {
+    max-height: 2em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+</style>

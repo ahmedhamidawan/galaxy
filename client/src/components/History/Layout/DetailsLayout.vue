@@ -1,5 +1,8 @@
 <template>
-    <section class="m-3 details" data-description="edit details">
+    <section
+        class="details"
+        :class="summarized && !editing ? 'summarized-details' : 'm-3'"
+        data-description="edit details">
         <b-button
             :disabled="isAnonymous || !writeable"
             class="edit-button ml-1 float-right"
@@ -15,8 +18,27 @@
 
         <!-- display annotation, tags -->
         <div v-if="!editing">
-            <div v-if="annotation" v-short="annotation" class="mt-2" data-description="annotation value" />
-            <StatelessTags v-if="tags" class="tags mt-2" :value="tags" :disabled="true" />
+            <div
+                v-if="annotation && !summarized"
+                v-short="annotation"
+                class="mt-2"
+                data-description="annotation value" />
+            <div v-else-if="summarized" style="min-height: 2rem">
+                <TextSummary
+                    v-if="annotation"
+                    :description="annotation"
+                    data-description="annotation value"
+                    one-line-summary
+                    no-expand />
+            </div>
+            <StatelessTags
+                v-if="tags"
+                class="tags"
+                :class="!summarized && 'mt-2'"
+                :value="tags"
+                disabled
+                :max-visible-tags="summarized ? 1 : 5" />
+            <slot v-if="summarized" name="update-time" />
         </div>
 
         <!-- edit form, change title, annotation, or tags -->
@@ -72,11 +94,13 @@ import { mapState } from "pinia";
 import short from "@/components/plugins/short.js";
 import { useUserStore } from "@/stores/userStore";
 
+import TextSummary from "@/components/Common/TextSummary.vue";
 import StatelessTags from "@/components/TagsMultiselect/StatelessTags.vue";
 
 export default {
     components: {
         StatelessTags,
+        TextSummary,
     },
     directives: {
         short,
@@ -85,6 +109,7 @@ export default {
         name: { type: String, default: null },
         annotation: { type: String, default: null },
         showAnnotation: { type: Boolean, default: true },
+        summarized: { type: Boolean, default: false },
         tags: { type: Array, default: null },
         writeable: { type: Boolean, default: true },
     },
@@ -140,3 +165,14 @@ export default {
     },
 };
 </script>
+
+<style lang="scss" scoped>
+.summarized-details {
+    min-height: 8.5em;
+    margin: 1rem 1rem 0 1rem;
+
+    .tags {
+        min-height: 2rem;
+    }
+}
+</style>

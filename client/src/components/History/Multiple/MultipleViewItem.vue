@@ -16,6 +16,7 @@
             :history="getHistory"
             :filter="filter"
             :show-controls="false"
+            is-multi-view-item
             @view-collection="onViewCollection" />
         <hr class="w-100 m-2" />
         <div class="flex-row flex-grow-0">
@@ -29,11 +30,12 @@
                 {{ sameToCurrent ? "Current History" : "Switch to" }}
             </b-button>
             <b-button
+                v-if="Object.keys(pinnedHistories).length > 0"
                 size="sm"
                 class="my-1"
                 variant="outline-danger"
                 title="Hide this history from the list"
-                @click="unpinHistory(source.id)">
+                @click="unpinHistories([source.id])">
                 Hide
             </b-button>
         </div>
@@ -70,7 +72,7 @@ export default {
         };
     },
     computed: {
-        ...mapState(useHistoryStore, ["currentHistoryId", "getHistoryById"]),
+        ...mapState(useHistoryStore, ["currentHistoryId", "getHistoryById", "pinnedHistories"]),
         sameToCurrent() {
             return this.currentHistoryId === this.source.id;
         },
@@ -79,7 +81,7 @@ export default {
         },
     },
     methods: {
-        ...mapActions(useHistoryStore, ["setCurrentHistory", "unpinHistory"]),
+        ...mapActions(useHistoryStore, ["setCurrentHistory", "unpinHistories"]),
         onViewCollection(collection) {
             this.selectedCollections = [...this.selectedCollections, collection];
         },
