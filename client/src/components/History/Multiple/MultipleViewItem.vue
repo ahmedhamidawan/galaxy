@@ -1,3 +1,41 @@
+<script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
+
+import { useHistoryStore } from "@/stores/historyStore";
+
+import CollectionPanel from "@/components/History/CurrentCollection/CollectionPanel.vue";
+import HistoryPanel from "@/components/History/CurrentHistory/HistoryPanel.vue";
+import LoadingSpan from "@/components/LoadingSpan.vue";
+
+const props = defineProps({
+    source: {
+        type: Object,
+        required: true,
+    },
+    filter: {
+        type: String,
+        default: null,
+    },
+});
+
+// TODO: change type `any`
+const selectedCollections = ref<any[]>([]);
+
+const historyStore = useHistoryStore();
+
+onMounted(() => {
+    historyStore.loadHistoryById(props.source.id);
+});
+
+const sameToCurrent = computed(() => historyStore.currentHistoryId === props.source.id);
+
+const getHistory = computed(() => historyStore.getHistoryById(props.source.id));
+
+function onViewCollection(collection: any) {
+    selectedCollections.value = [...selectedCollections.value, collection];
+}
+</script>
+
 <template>
     <div v-if="!getHistory" class="container">
         <div class="row align-items-center h-100">
@@ -26,65 +64,18 @@
                 :disabled="sameToCurrent"
                 :variant="sameToCurrent ? 'disabled' : 'outline-info'"
                 :title="sameToCurrent ? 'Current History' : 'Switch to this history'"
-                @click="setCurrentHistory(source.id)">
+                @click="historyStore.setCurrentHistory(source.id)">
                 {{ sameToCurrent ? "Current History" : "Switch to" }}
             </b-button>
             <b-button
-                v-if="Object.keys(pinnedHistories).length > 0"
+                v-if="Object.keys(historyStore.pinnedHistories).length > 0"
                 size="sm"
                 class="my-1"
                 variant="outline-danger"
                 title="Hide this history from the list"
-                @click="unpinHistories([source.id])">
+                @click="historyStore.unpinHistories([source.id])">
                 Hide
             </b-button>
         </div>
     </div>
 </template>
-
-<script>
-import CollectionPanel from "components/History/CurrentCollection/CollectionPanel";
-import HistoryPanel from "components/History/CurrentHistory/HistoryPanel";
-import LoadingSpan from "components/LoadingSpan";
-import { mapActions, mapState } from "pinia";
-
-import { useHistoryStore } from "@/stores/historyStore";
-
-export default {
-    components: {
-        HistoryPanel,
-        CollectionPanel,
-        LoadingSpan,
-    },
-    props: {
-        source: {
-            type: Object,
-            required: true,
-        },
-        filter: {
-            type: String,
-            default: null,
-        },
-    },
-    data() {
-        return {
-            selectedCollections: [],
-        };
-    },
-    computed: {
-        ...mapState(useHistoryStore, ["currentHistoryId", "getHistoryById", "pinnedHistories"]),
-        sameToCurrent() {
-            return this.currentHistoryId === this.source.id;
-        },
-        getHistory() {
-            return this.getHistoryById(this.source.id);
-        },
-    },
-    methods: {
-        ...mapActions(useHistoryStore, ["setCurrentHistory", "unpinHistories"]),
-        onViewCollection(collection) {
-            this.selectedCollections = [...this.selectedCollections, collection];
-        },
-    },
-};
-</script>

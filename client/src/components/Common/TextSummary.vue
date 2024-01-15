@@ -65,22 +65,21 @@ const text = computed(() =>
 
 <template>
     <div>
-        <component :is="props.component" v-if="props.oneLineSummary" class="one-line-summary">{{
-            props.description
-        }}</component>
-        <span v-else>{{ text }}</span>
-        <span v-if="!noExpand && summary">
-            <a
-                v-if="!propShowDetails"
-                class="text-summary-expand"
-                href="javascript:void(0)"
-                @click.stop="propShowDetails = true">
-                ... <FontAwesomeIcon :icon="collapsedEnableIcon" />
-            </a>
-            <a v-else href="javascript:void(0)" @click.stop="propShowDetails = false">
-                ... <FontAwesomeIcon :icon="collapsedDisableIcon" />
-            </a>
-        </span>
+        <component :is="props.component" :class="props.oneLineSummary && 'one-line-summary'">
+            {{ text }}
+            <span v-if="!noExpand && summary">
+                <a
+                    v-if="!propShowDetails"
+                    class="text-summary-expand"
+                    href="javascript:void(0)"
+                    @click.stop="propShowDetails = true">
+                    ... <FontAwesomeIcon :icon="collapsedEnableIcon" />
+                </a>
+                <a v-else href="javascript:void(0)" @click.stop="propShowDetails = false">
+                    ... <FontAwesomeIcon :icon="collapsedDisableIcon" />
+                </a>
+            </span>
+        </component>
     </div>
 </template>
 
