@@ -128,7 +128,7 @@ function onTagClicked(tag: string) {
                     :id="toggleButtonId"
                     variant="link"
                     class="toggle-link"
-                    @click="() => (toggledOpen = true)">
+                    @click.stop="() => (toggledOpen = true)">
                     {{ slicedTags.length }} more...
                 </BButton>
 
