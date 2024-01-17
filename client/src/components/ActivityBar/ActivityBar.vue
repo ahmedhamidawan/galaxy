@@ -51,7 +51,7 @@ const dragItem: Ref<Activity | null> = ref(null);
 const isDragging = ref(false);
 
 /**
- * Checks if the route of an activitiy is currently being visited and panels are collapsed
+ * Checks if the route of an activity is currently being visited and panels are collapsed
  */
 function isActiveRoute(activityTo: string) {
     return route.path === activityTo && isActiveSideBar("");
@@ -62,6 +62,13 @@ function isActiveRoute(activityTo: string) {
  */
 function isActiveSideBar(menuKey: string) {
     return userStore.toggledSideBar === menuKey;
+}
+
+/**
+ * Checks if an activity that has a panel should have the `is-active` prop
+ */
+function panelActivityIsActive(activity: Activity) {
+    return isActiveSideBar(activity.id) || (activity.to !== null && isActiveRoute(activity.to));
 }
 
 /**
@@ -111,7 +118,12 @@ function onDragOver(evt: MouseEvent) {
 /**
  * Tracks the state of activities which expand or collapse the sidepanel
  */
-function onToggleSidebar(toggle: string) {
+function onToggleSidebar(toggle: string, to: string | null = null) {
+    // if an activity's dedicated panel/sideBar is already active
+    // but the route is different, don't collapse
+    if (toggle && to && !(route.path === to) && isActiveSideBar(toggle)) {
+        return;
+    }
     userStore.toggleSideBar(toggle);
 }
 
@@ -173,11 +185,11 @@ function toggleContextMenu(evt: MouseEvent) {
                                 :id="`activity-${activity.id}`"
                                 :key="activity.id"
                                 :icon="activity.icon"
-                                :is-active="isActiveSideBar(activity.id)"
+                                :is-active="panelActivityIsActive(activity)"
                                 :title="activity.title"
                                 :tooltip="activity.tooltip"
                                 :to="activity.to"
-                                @click="onToggleSidebar(activity.id)" />
+                                @click="onToggleSidebar(activity.id, activity.to)" />
                             <ActivityItem
                                 v-else-if="activity.to"
                                 :id="`activity-${activity.id}`"
