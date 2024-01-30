@@ -3,6 +3,7 @@ import { useWorkflowInstance } from "@/composables/useWorkflowInstance";
 
 import ParameterStep from "./ParameterStep.vue";
 import WorkflowInvocationStep from "./WorkflowInvocationStep.vue";
+import InvocationGraph from "@/components/Workflow/Invocation/InvocationGraph.vue";
 import GenericHistoryItem from "components/History/Content/GenericItem.vue";
 
 const props = defineProps({
@@ -65,6 +66,11 @@ function dataInputStepLabel(key: number, input: HasSrc) {
                     :invocation="invocation"
                     :workflow="workflow"
                     :workflow-step="step" />
+            </b-tab>
+            <b-tab v-if="workflow" title="Graph">
+                <InvocationGraph
+                    :id="workflow.id"
+                    :invocation="invocation" />
             </b-tab>
         </b-tabs>
     </div>

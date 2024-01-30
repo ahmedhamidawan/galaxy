@@ -552,7 +552,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
         return editor_config
 
     @web.json
-    def load_workflow(self, trans, id, version=None, **kwargs):
+    def load_workflow(self, trans, id, version=None, invocation_id=None, **kwargs):
         """
         Get the latest Workflow for the StoredWorkflow identified by `id` and
         encode it as a json string that can be read by the workflow editor
@@ -561,8 +561,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
         trans.workflow_building_mode = workflow_building_modes.ENABLED
         stored = self.get_stored_workflow(trans, id, check_ownership=False, check_accessible=True)
         workflow_contents_manager = self.app.workflow_contents_manager
-        return workflow_contents_manager.workflow_to_dict(trans, stored, style="editor", version=version)
-
+        return workflow_contents_manager.workflow_to_dict(trans, stored, style="editor", version=version, invocation_id=invocation_id)
     @web.json_pretty
     def for_direct_import(self, trans, id, **kwargs):
         """

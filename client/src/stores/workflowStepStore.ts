@@ -102,7 +102,7 @@ export interface NewStep {
     tool_state: Record<string, unknown>;
     tool_version?: string;
     tooltip?: string;
-    type: "tool" | "data_input" | "data_collection_input" | "subworkflow" | "parameter_input" | "pause";
+    type: "tool" | "data_input" | "data_collection_input" | "subworkflow" | "parameter_input" | "pause" | "history_item";
     uuid?: string;
     when?: string | null;
     workflow_outputs?: WorkflowOutput[];
@@ -398,6 +398,7 @@ function stepToConnections(step: Step): Connection[] {
             });
         });
     }
+    console.log("awan Connections for step", step.id, connections);
     return connections;
 }
 

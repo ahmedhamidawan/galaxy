@@ -3,7 +3,6 @@ import { library } from "@fortawesome/fontawesome-svg-core";
 import { faSquare } from "@fortawesome/free-regular-svg-icons";
 import {
     faCheckSquare,
-    faChevronCircleDown,
     faChevronCircleRight,
     faEye,
     faEyeSlash,
@@ -36,7 +35,7 @@ import ConnectionMenu from "@/components/Workflow/Editor/ConnectionMenu.vue";
 
 type ElementBounding = UnwrapRef<UseElementBoundingReturn>;
 
-library.add(faSquare, faCheckSquare, faChevronCircleDown, faChevronCircleRight, faEye, faEyeSlash, faMinus, faPlus);
+library.add(faSquare, faCheckSquare, faChevronCircleRight, faEye, faEyeSlash, faMinus, faPlus);
 
 const props = defineProps<{
     output: OutputTerminalSource;
@@ -51,7 +50,6 @@ const props = defineProps<{
     datatypesMapper: DatatypesMapperModel;
     parentNode: HTMLElement | null;
     readonly: boolean;
-    invocation: boolean;
 }>();
 
 const emit = defineEmits(["pan-by", "stopDragging", "onDragConnector"]);
@@ -381,8 +379,8 @@ const removeTagsAction = computed(() => {
             :id="id"
             ref="terminalComponent"
             v-b-tooltip.hover="outputDetails"
-            class="prevent-zoom"
-            :class="{ 'mapped-over': isMultiple, 'output-terminal': !invocation, 'invocation-terminal': invocation }"
+            class="output-terminal prevent-zoom"
+            :class="{ 'mapped-over': isMultiple }"
             :output-name="output.name"
             :root-offset="rootOffset"
             :prevent-default="false"
@@ -390,7 +388,6 @@ const removeTagsAction = computed(() => {
             :drag-data="{ stepId: stepId, output: effectiveOutput }"
             :draggable="!readonly"
             :disabled="readonly"
-            :snappable="false"
             @pan-by="onPanBy"
             @start="isDragging = true"
             @stop="onStopDragging"
@@ -400,8 +397,7 @@ const removeTagsAction = computed(() => {
                 :aria-label="`Connect output ${output.name} to input. Press space to see a list of available inputs`"
                 @click="toggleChildComponent"></button>
 
-            <FontAwesomeIcon v-if="!invocation" class="terminal-icon" icon="fa-chevron-circle-right" />
-            <FontAwesomeIcon v-else class="terminal-icon" icon="fa-chevron-circle-down" />
+            <FontAwesomeIcon class="terminal-icon" icon="fa-chevron-circle-right" />
 
             <ConnectionMenu
                 v-if="showChildComponent"
@@ -432,18 +428,6 @@ const removeTagsAction = computed(() => {
 
 .output-terminal {
     @include node-terminal-style(right);
-
-    &:hover {
-        color: $brand-success;
-    }
-
-    button:focus + .terminal-icon {
-        color: $brand-success;
-    }
-}
-
-.invocation-terminal {
-    @include node-terminal-style(bottom);
 
     &:hover {
         color: $brand-success;

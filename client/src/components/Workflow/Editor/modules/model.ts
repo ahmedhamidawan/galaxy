@@ -13,6 +13,11 @@ interface Workflow {
     tags: string[];
 }
 
+interface Invocation {
+    steps: Steps;
+    comments: WorkflowComment[];
+}
+
 /**
  * Loads a workflow into the editor
  *
@@ -23,7 +28,7 @@ interface Workflow {
  */
 export async function fromSimple(
     id: string,
-    data: Workflow,
+    data: Workflow | Invocation,
     appendData = false,
     defaultPosition = { top: 0, left: 0 }
 ) {

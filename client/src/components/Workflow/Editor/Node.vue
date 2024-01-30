@@ -69,6 +69,7 @@
                 <FontAwesomeIcon icon="fa-code-branch" />
             </span>
             <span
+                v-if="!invocation"
                 v-b-tooltip.hover
                 title="Index of the step in the workflow run form. Steps are ordered by distance to the upper-left corner of the window; inputs are listed first."
                 >{{ step.id + 1 }}:
@@ -83,7 +84,13 @@
             @click="makeActive">
             {{ errors }}
         </b-alert>
+        <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -->
         <div v-else class="node-body card-body p-0 mx-2" @click="makeActive" @keyup.enter="makeActive">
+            <GenericItem
+                v-if="step.type === 'history_item'"
+                :key="step.name"
+                :item-id="step.name"
+                item-src="hda" />
             <NodeInput
                 v-for="(input, index) in inputs"
                 :key="`in-${index}-${input.name}`"
@@ -98,6 +105,7 @@
                 :readonly="readonly"
                 @onChange="onChange" />
             <div v-if="showRule" class="rule" />
+            <!-- <span v-if="invocation"> -->
             <NodeOutput
                 v-for="(output, index) in outputs"
                 :key="`out-${index}-${output.name}`"
@@ -113,9 +121,14 @@
                 :datatypes-mapper="datatypesMapper"
                 :parent-node="elHtml"
                 :readonly="readonly"
+                :invocation="invocation && step.type !== 'history_item'"
                 @onDragConnector="onDragConnector"
                 @stopDragging="onStopDragging"
                 @onChange="onChange" />
+            <!-- </span>
+            <span v-else>
+
+            </span> -->
         </div>
     </DraggableWrapper>
 </template>
@@ -139,10 +152,12 @@ import type { Step } from "@/stores/workflowStepStore";
 
 import type { OutputTerminals } from "./modules/terminals";
 
+import GenericItem from "@/components/History/Content/GenericItem.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import DraggableWrapper from "@/components/Workflow/Editor/DraggablePan.vue";
 import NodeInput from "@/components/Workflow/Editor/NodeInput.vue";
 import NodeOutput from "@/components/Workflow/Editor/NodeOutput.vue";
+// import NodeInvocationOutput from "@/components/Workflow/Editor/NodeInvocationOutput.vue";
 import Recommendations from "@/components/Workflow/Editor/Recommendations.vue";
 
 Vue.use(BootstrapVue);
@@ -165,6 +180,7 @@ const props = defineProps({
     scale: { type: Number, default: 1 },
     highlight: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
+    invocation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([

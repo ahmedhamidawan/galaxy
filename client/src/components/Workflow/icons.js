@@ -11,4 +11,5 @@ export default {
     subworkflow: "fa-sitemap fa-rotate-270",
     parameter_input: "fa-pencil-alt", // fa-pencil for older FontAwesome, fa-pencil-alt for newer
     pause: "fa-pause",
+    history_item: "fa-folder",
 };

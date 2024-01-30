@@ -862,7 +862,7 @@ class WorkflowContentsManager(UsesAnnotations):
 
         return workflow, missing_tool_tups
 
-    def workflow_to_dict(self, trans, stored, style="export", version=None, history=None):
+    def workflow_to_dict(self, trans, stored, style="export", version=None, history=None, invocation_id=None):
         """Export the workflow contents to a dictionary ready for JSON-ification and to be
         sent out via API for instance. There are three styles of export allowed 'export', 'instance', and
         'editor'. The Galaxy team will do its best to preserve the backward compatibility of the
@@ -883,7 +883,7 @@ class WorkflowContentsManager(UsesAnnotations):
         if style == "export":
             style = self.app.config.default_workflow_export_format
         if style == "editor":
-            wf_dict = self._workflow_to_dict_editor(trans, stored, workflow)
+            wf_dict = self._workflow_to_dict_editor(trans, stored, workflow, invocation_id=invocation_id)
         elif style == "legacy":
             wf_dict = self._workflow_to_dict_instance(trans, stored, workflow=workflow, legacy=True)
         elif style == "instance":
@@ -1170,7 +1170,7 @@ class WorkflowContentsManager(UsesAnnotations):
         """Get workflow scheduling resource parameters for this user and workflow or None if not configured."""
         return self._resource_mapper_function(trans=trans, stored_workflow=stored, workflow=workflow)
 
-    def _workflow_to_dict_editor(self, trans, stored, workflow, tooltip=True, is_subworkflow=False):
+    def _workflow_to_dict_editor(self, trans, stored, workflow, tooltip=True, is_subworkflow=False, invocation_id=None):
         # Pack workflow data into a dictionary and return
         data = {}
         data["name"] = workflow.name
@@ -1182,6 +1182,10 @@ class WorkflowContentsManager(UsesAnnotations):
         data["source_metadata"] = workflow.source_metadata
         data["annotation"] = self.get_item_annotation_str(trans.sa_session, trans.user, stored) or ""
         data["comments"] = [comment.to_dict() for comment in workflow.comments]
+
+        invocation = None
+        if invocation_id:
+            invocation = self.app.workflow_manager.get_invocation(trans, trans.security.decode_id(invocation_id))
 
         output_label_index = set()
         input_step_types = set(workflow.input_step_types)

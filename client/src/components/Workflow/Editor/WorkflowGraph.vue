@@ -31,6 +31,7 @@
                     :scroll="scroll"
                     :scale="scale"
                     :readonly="readonly"
+                    :invocation="invocation"
                     @pan-by="panBy"
                     @stopDragging="onStopDragging"
                     @onDragConnector="onDragConnector"
@@ -93,6 +94,7 @@ const props = defineProps({
     initialPosition: { type: Object as PropType<{ x: number; y: number }>, default: () => ({ x: 50, y: 20 }) },
     showMinimap: { type: Boolean, default: true },
     showZoomControls: { type: Boolean, default: true },
+    invocation: { type: Boolean, default: false },
 });
 
 const { stateStore, stepStore } = useWorkflowStores();
