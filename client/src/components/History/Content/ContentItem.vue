@@ -72,6 +72,7 @@ const emit = defineEmits<{
     (e: "tag-change", item: any, newTags: Array<string>): void;
     (e: "tag-click", tag: string): void;
     (e: "toggleHighlights", item: any): void;
+    (e: "open-in-history", item: any): void;
 }>();
 
 const entryPointStore = useEntryPointStore();
@@ -229,6 +230,7 @@ function onClick(e?: Event) {
             emit("init-key-selection");
         }
     }
+    emit("open-in-history", props.item);
     if (props.isPlaceholder) {
         return;
     }

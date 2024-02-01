@@ -97,6 +97,18 @@
                 :parent-node="elHtml"
                 :readonly="readonly"
                 @onChange="onChange" />
+            <span v-if="props.invocation">
+                <div v-if="showRule && props.step.inputs?.length > 0" class="rule" />
+                <span v-for="output in props.step.invocation_outputs" :key="output.id">
+                    <GenericItem
+                        :key="output.id"
+                        v-b-tooltip.noninteractive.hover
+                        title="Click to open in history"
+                        :item-id="output.id"
+                        :item-src="output.src"
+                        un-expandable />
+                </span>
+            </span>
             <div v-if="showRule" class="rule" />
             <NodeOutput
                 v-for="(output, index) in outputs"
@@ -135,10 +147,11 @@ import { useNodePosition } from "@/components/Workflow/Editor/composables/useNod
 import WorkflowIcons from "@/components/Workflow/icons";
 import { useWorkflowStores } from "@/composables/workflowStores";
 import type { TerminalPosition, XYPosition } from "@/stores/workflowEditorStateStore";
-import type { Step } from "@/stores/workflowStepStore";
+import type { Step as WorkflowStep } from "@/stores/workflowStepStore";
 
 import type { OutputTerminals } from "./modules/terminals";
 
+import GenericItem from "@/components/History/Content/GenericItem.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import DraggableWrapper from "@/components/Workflow/Editor/DraggablePan.vue";
 import NodeInput from "@/components/Workflow/Editor/NodeInput.vue";
@@ -148,6 +161,12 @@ import Recommendations from "@/components/Workflow/Editor/Recommendations.vue";
 Vue.use(BootstrapVue);
 
 library.add(faCodeBranch);
+
+// TODO: use schema or other better way to type here
+interface Step extends WorkflowStep {
+    invocation_outputs?: any;
+    state?: string;
+}
 
 const props = defineProps({
     id: { type: Number, required: true },
@@ -165,6 +184,7 @@ const props = defineProps({
     scale: { type: Number, default: 1 },
     highlight: { type: Boolean, default: false },
     readonly: { type: Boolean, default: false },
+    invocation: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -203,7 +223,11 @@ useNodePosition(
 );
 const title = computed(() => props.step.label || props.step.name);
 const idString = computed(() => `wf-node-step-${props.id}`);
-const showRule = computed(() => props.step.inputs?.length > 0 && props.step.outputs?.length > 0);
+const showRule = computed(
+    () =>
+        (props.invocation && props.step.invocation_outputs) ||
+        (props.step.inputs?.length > 0 && props.step.outputs?.length > 0)
+);
 const iconClass = computed(() => `icon fa fa-fw ${WorkflowIcons[props.step.type]}`);
 const canClone = computed(() => props.step.type !== "subworkflow"); // Why ?
 const isEnabled = getGalaxyInstance().config.enable_tool_recommendations; // getGalaxyInstance is not reactive
