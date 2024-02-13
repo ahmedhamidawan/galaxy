@@ -75,7 +75,7 @@ function goToAllNotifications() {
             No unread notifications to show.
         </BAlert>
 
-        <TransitionGroup name="notifications-box-list" tag="div">
+        <TransitionGroup name="notifications-box-list" style="padding: 0.2rem 0.2rem;" tag="div">
             <div v-for="notification in unreadNotifications" :key="notification.id" class="notifications-box-card">
                 <NotificationCard :notification="notification" />
             </div>

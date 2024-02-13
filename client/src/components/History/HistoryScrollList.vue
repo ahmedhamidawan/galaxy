@@ -33,6 +33,7 @@ const props = defineProps({
     additionalOptions: { type: Array as PropType<AdditionalOptions[]>, default: () => [] },
     showModal: { type: Boolean, default: false },
     inModal: { type: Boolean, default: false },
+    inPanel: { type: Boolean, default: false },
     filter: { type: String, default: "" },
     loading: { type: Boolean, default: false },
 });
@@ -124,9 +125,9 @@ const filtered: Ref<HistorySummary[]> = computed(() => {
         });
     }
     return filteredHistories.sort((a, b) => {
-        if (!isMultiviewPanel.value && a.id == currentHistoryId.value) {
+        if (!props.inPanel && a.id == currentHistoryId.value) {
             return -1;
-        } else if (!isMultiviewPanel.value && b.id == currentHistoryId.value) {
+        } else if (!props.inPanel && b.id == currentHistoryId.value) {
             return 1;
         } else if (a.update_time < b.update_time) {
             return 1;
@@ -137,11 +138,13 @@ const filtered: Ref<HistorySummary[]> = computed(() => {
 });
 
 /** is this the selector list for Multiview that shows up in the left panel */
-const isMultiviewPanel = computed(() => !props.inModal && props.multiple);
+const isMultiviewPanel = computed(() => props.inPanel && props.multiple);
 
 function isActiveItem(history: HistorySummary) {
     if (isMultiviewPanel.value) {
         return pinnedHistories.value.some((item: PinnedHistory) => item.id == history.id);
+    } else if (props.inPanel) {
+        return currentHistoryId.value === history.id;
     } else {
         return props.selectedHistories.some((item: PinnedHistory) => item.id == history.id);
     }
@@ -155,6 +158,8 @@ function historyClicked(history: HistorySummary) {
         } else {
             openInMulti(history);
         }
+    } else if (props.inPanel) {
+        setCurrentHistory(history);
     }
 }
 
@@ -182,6 +187,9 @@ function openInMulti(history: HistorySummary) {
     router.push("/histories/view_multiple");
     historyStore.pinHistory(history.id);
     emit("update:show-modal", false);
+    if (props.inPanel && !isMultiviewPanel.value) {
+        useUserStore().toggleSideBar("multiview");       
+    }
 }
 
 /** Loads (paginates) for more histories
@@ -198,7 +206,7 @@ async function loadMore(noScroll = false) {
 </script>
 
 <template>
-    <div :class="isMultiviewPanel ? 'unified-panel' : 'flex-column-overflow'">
+    <div :class="props.inPanel ? 'unified-panel' : 'flex-column-overflow'">
         <div class="unified-panel-controls">
             <BBadge v-if="props.filter && !validFilter" class="alert-danger w-100 mb-2">
                 Search string too short!
@@ -209,7 +217,7 @@ async function loadMore(noScroll = false) {
         <div
             class="history-list-container"
             :class="{
-                'in-panel': isMultiviewPanel,
+                'in-panel': props.inPanel,
                 'scrolled-top': scrolledTop,
                 'scrolled-bottom': scrolledBottom,
             }">
@@ -218,9 +226,9 @@ async function loadMore(noScroll = false) {
                 ref="scrollableDiv"
                 :class="{
                     'history-scroll-list': !hasNoResults,
-                    'in-panel': isMultiviewPanel,
+                    'in-panel': props.inPanel,
                     'in-modal': props.inModal,
-                    toolMenuContainer: isMultiviewPanel,
+                    toolMenuContainer: props.inPanel,
                 }"
                 role="list">
                 <BListGroup>
@@ -231,13 +239,13 @@ async function loadMore(noScroll = false) {
                         button
                         :class="{
                             current: history.id === currentHistoryId,
-                            'panel-item': isMultiviewPanel,
+                            'panel-item': props.inPanel,
                         }"
                         :active="isActiveItem(history)"
                         @click="() => historyClicked(history)">
                         <div class="overflow-auto w-100">
-                            <div :class="!isMultiviewPanel ? 'd-flex justify-content-between align-items-center' : ''">
-                                <div v-if="!isMultiviewPanel">
+                            <div :class="!props.inPanel ? 'd-flex justify-content-between align-items-center' : ''">
+                                <div v-if="!props.inPanel">
                                     <Heading h3 inline bold size="text">
                                         <span>{{ history.name }}</span>
                                         <i v-if="history.id === currentHistoryId">(Current)</i>
@@ -267,19 +275,20 @@ async function loadMore(noScroll = false) {
                                 </div>
                             </div>
 
-                            <p v-if="!isMultiviewPanel && history.annotation" class="my-1">{{ history.annotation }}</p>
+                            <p v-if="!props.inPanel && history.annotation" class="my-1">{{ history.annotation }}</p>
 
                             <StatelessTags
                                 v-if="history.tags.length > 0"
                                 class="my-1"
                                 :value="history.tags"
                                 :disabled="true"
-                                :max-visible-tags="isMultiviewPanel ? 1 : 10"
+                                :max-visible-tags="props.inPanel ? 1 : 10"
                                 @tag-click="setFilterValue('tag', $event)" />
 
                             <div
                                 v-if="props.additionalOptions.length > 0"
-                                class="d-flex justify-content-end align-items-center mt-1">
+                                class="d-flex align-items-center mt-1"
+                                :class="!props.inPanel && 'justify-content-end'">
                                 <BButtonGroup>
                                     <BButton
                                         v-if="
@@ -291,7 +300,7 @@ async function loadMore(noScroll = false) {
                                         variant="link"
                                         class="p-0 px-1"
                                         @click.stop="() => setCurrentHistory(history)">
-                                        <FontAwesomeIcon icon="fa-sign-in-alt" />
+                                        <FontAwesomeIcon :icon="faSignInAlt" />
                                     </BButton>
 
                                     <BButton
@@ -301,7 +310,7 @@ async function loadMore(noScroll = false) {
                                         variant="link"
                                         class="p-0 px-1"
                                         @click.stop="() => openInMulti(history)">
-                                        <FontAwesomeIcon icon="fa-columns" />
+                                        <FontAwesomeIcon :icon="faColumns" />
                                     </BButton>
 
                                     <BButton
@@ -311,14 +320,14 @@ async function loadMore(noScroll = false) {
                                         variant="link"
                                         class="p-0 px-1"
                                         @click.stop="() => setCenterPanelHistory(history)">
-                                        <FontAwesomeIcon icon="far fa-list-alt" />
+                                        <FontAwesomeIcon :icon="faListAlt" />
                                     </BButton>
                                 </BButtonGroup>
                             </div>
                         </div>
-                        <div v-if="isMultiviewPanel">
+                        <div v-if="props.inPanel">
                             <FontAwesomeIcon v-if="isActiveItem(history)" :icon="['far', 'check-square']" size="lg" />
-                            <FontAwesomeIcon v-else :icon="['far', 'square']" size="lg" />
+                            <FontAwesomeIcon v-else :icon="isMultiviewPanel ? ['far', 'square'] : ['fa', 'sign-in-alt']" size="lg" />
                         </div>
                     </BListGroupItem>
                     <div>
@@ -333,11 +342,11 @@ async function loadMore(noScroll = false) {
             <ScrollToTopButton :offset="scrollTop" @click="scrollToTop" />
         </div>
 
-        <div :class="!isMultiviewPanel && 'd-flex flex-row mt-3'">
+        <div :class="!props.inPanel && 'd-flex flex-row mt-3'">
             <div
                 v-if="!allLoaded"
                 class="mr-auto d-flex justify-content-center align-items-center"
-                :class="isMultiviewPanel && 'mt-1'">
+                :class="props.inPanel && 'mt-1'">
                 <i class="mr-1">Loaded {{ filtered.length }} out of {{ totalHistoryCount }} histories</i>
                 <BButton
                     v-if="!props.filter"
@@ -347,7 +356,7 @@ async function loadMore(noScroll = false) {
                     :title="localize('Load More')"
                     variant="link"
                     @click="loadMore()">
-                    <FontAwesomeIcon icon="fa-arrow-down" />
+                    <FontAwesomeIcon :icon="faArrowDown" />
                 </BButton>
             </div>
 

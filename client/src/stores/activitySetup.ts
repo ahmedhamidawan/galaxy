@@ -79,7 +79,7 @@ export const Activities = [
         optional: true,
         title: "Histories",
         tooltip: "Show all histories",
-        to: "/histories/list",
+        to: null,
         visible: true,
     },
     {
