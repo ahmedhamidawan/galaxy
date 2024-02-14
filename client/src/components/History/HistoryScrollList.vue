@@ -53,7 +53,7 @@ const scrollableDiv: Ref<HTMLElement | null> = ref(null);
 
 const historyStore = useHistoryStore();
 const { currentHistoryId, histories, totalHistoryCount, pinnedHistories } = storeToRefs(historyStore);
-const { currentUser } = storeToRefs(useUserStore());
+const { currentUser, toggledSideBar } = storeToRefs(useUserStore());
 
 const hasNoResults = computed(() => props.filter && filtered.value.length == 0);
 const validFilter = computed(() => props.filter && props.filter.length > 2);
@@ -187,9 +187,6 @@ function openInMulti(history: HistorySummary) {
     router.push("/histories/view_multiple");
     historyStore.pinHistory(history.id);
     emit("update:show-modal", false);
-    if (props.inPanel && !isMultiviewPanel.value) {
-        useUserStore().toggleSideBar("histories");
-    }
 }
 
 /** Loads (paginates) for more histories
