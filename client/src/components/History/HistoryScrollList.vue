@@ -188,7 +188,7 @@ function openInMulti(history: HistorySummary) {
     historyStore.pinHistory(history.id);
     emit("update:show-modal", false);
     if (props.inPanel && !isMultiviewPanel.value) {
-        useUserStore().toggleSideBar("multiview");       
+        useUserStore().toggleSideBar("histories");
     }
 }
 

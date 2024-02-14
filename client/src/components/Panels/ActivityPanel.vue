@@ -1,12 +1,14 @@
 <script setup lang="ts">
 interface Props {
     title: string;
-    goToAllTitle?: string;
+    goToAllTitle?: string | string[];
 }
 
 const props = defineProps<Props>();
 
-const emit = defineEmits(["goToAll"]);
+const emit = defineEmits<{
+    (e: "goToAll", index?: number): void;
+}>();
 </script>
 
 <template>
@@ -26,13 +28,23 @@ const emit = defineEmits(["goToAll"]);
         </div>
 
         <BButton
-            v-if="props.goToAllTitle"
+            v-if="props.goToAllTitle && !Array.isArray(props.goToAllTitle)"
             class="activity-panel-footer"
             variant="primary"
             :data-description="`props.mainButtonText button`"
             @click="emit('goToAll')">
             {{ props.goToAllTitle }}
         </BButton>
+        <BButtonGroup v-else-if="props.goToAllTitle" class="activity-panel-footer">
+            <BButton
+                v-for="(goToTitle, index) in props.goToAllTitle"
+                :key="index"
+                variant="primary"
+                :data-description="`props.mainButtonText button ${index}`"
+                @click="emit('goToAll', index)">
+                {{ goToTitle }}
+            </BButton>
+        </BButtonGroup>
     </div>
 </template>
 
@@ -70,6 +82,10 @@ const emit = defineEmits(["goToAll"]);
 
     .activity-panel-footer {
         margin-top: 0.5rem;
+
+        .btn {
+            width: 100%;
+        }
     }
 }
 </style>

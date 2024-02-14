@@ -18,7 +18,6 @@ import UploadItem from "./Items/UploadItem.vue";
 import ContextMenu from "@/components/Common/ContextMenu.vue";
 import FlexPanel from "@/components/Panels/FlexPanel.vue";
 import HistoriesPanel from "@/components/Panels/HistoriesPanel.vue";
-import MultiviewPanel from "@/components/Panels/MultiviewPanel.vue";
 import NotificationsPanel from "@/components/Panels/NotificationsPanel.vue";
 import ToolPanel from "@/components/Panels/ToolPanel.vue";
 import WorkflowPanel from "@/components/Panels/WorkflowPanel.vue";
@@ -182,7 +181,7 @@ function toggleContextMenu(evt: MouseEvent) {
                                 :to="activity.to"
                                 @click="onToggleSidebar()" />
                             <ActivityItem
-                                v-else-if="['tools', 'workflows', 'multiview', 'histories'].includes(activity.id)"
+                                v-else-if="['tools', 'workflows', 'histories'].includes(activity.id)"
                                 :id="`activity-${activity.id}`"
                                 :key="activity.id"
                                 :icon="activity.icon"
@@ -232,11 +231,8 @@ function toggleContextMenu(evt: MouseEvent) {
         <FlexPanel v-else-if="isActiveSideBar('notifications')" key="notifications" side="left" :collapsible="false">
             <NotificationsPanel />
         </FlexPanel>
-        <FlexPanel v-else-if="isActiveSideBar('multiview')" key="multiview" side="left" :collapsible="false">
-            <MultiviewPanel />
-        </FlexPanel>
         <FlexPanel v-else-if="isActiveSideBar('histories')" key="histories" side="left" :collapsible="false">
-            <HistoriesPanel />
+            <HistoriesPanel :multiple="route.path === '/histories/view_multiple'" />
         </FlexPanel>
         <ContextMenu :visible="contextMenuVisible" :x="contextMenuX" :y="contextMenuY" @hide="toggleContextMenu">
             <ActivitySettings />
