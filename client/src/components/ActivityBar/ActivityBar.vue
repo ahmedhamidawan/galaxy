@@ -39,6 +39,8 @@ activityStore.sync();
 // activities from store
 const { activities } = storeToRefs(activityStore);
 
+const localNofificationActivity = { id: "notifications", to: "/user/notifications" };
+
 // context menu references
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
@@ -68,7 +70,7 @@ function isActiveSideBar(menuKey: string) {
 /**
  * Checks if an activity that has a panel should have the `is-active` prop
  */
-function panelActivityIsActive(activity: Activity) {
+function panelActivityIsActive(activity: Activity | { to: string, id: string }) {
     return isActiveSideBar(activity.id) || (activity.to !== null && isActiveRoute(activity.to));
 }
 
@@ -119,12 +121,7 @@ function onDragOver(evt: MouseEvent) {
 /**
  * Tracks the state of activities which expand or collapse the sidepanel
  */
-function onToggleSidebar(toggle: string, to: string | null = null) {
-    // if an activity's dedicated panel/sideBar is already active
-    // but the route is different, don't collapse
-    if (toggle && to && !(route.path === to) && isActiveSideBar(toggle)) {
-        return;
-    }
+function onToggleSidebar(toggle: string) {
     userStore.toggleSideBar(toggle);
 }
 
@@ -177,9 +174,11 @@ function toggleContextMenu(evt: MouseEvent) {
                                 :key="activity.id"
                                 :icon="activity.icon"
                                 :is-active="isActiveRoute(activity.to)"
+                                :side-bar-active="isActiveSideBar(activity.id)"
                                 :title="activity.title"
                                 :tooltip="activity.tooltip"
                                 :to="activity.to"
+                                type="split"
                                 @click="onToggleSidebar()" />
                             <ActivityItem
                                 v-else-if="['tools', 'workflows', 'multiview', 'histories'].includes(activity.id)"
@@ -187,10 +186,12 @@ function toggleContextMenu(evt: MouseEvent) {
                                 :key="activity.id"
                                 :icon="activity.icon"
                                 :is-active="panelActivityIsActive(activity)"
+                                :side-bar-active="isActiveSideBar(activity.id)"
                                 :title="activity.title"
                                 :tooltip="activity.tooltip"
                                 :to="activity.to"
-                                @click="onToggleSidebar(activity.id, activity.to)" />
+                                :type="activity.id === 'tools' ? 'panel' : 'split'"
+                                @click="onToggleSidebar(activity.id)" />
                             <ActivityItem
                                 v-else-if="activity.to"
                                 :id="`activity-${activity.id}`"
@@ -210,7 +211,8 @@ function toggleContextMenu(evt: MouseEvent) {
                     v-if="!isAnonymous && isConfigLoaded && config.enable_notification_system"
                     id="activity-notifications"
                     icon="bell"
-                    :is-active="isActiveSideBar('notifications')"
+                    :is-active="panelActivityIsActive(localNofificationActivity)"
+                    :side-bar-active="isActiveSideBar('notifications')"
                     title="Notifications"
                     @click="onToggleSidebar('notifications')" />
                 <ActivityItem

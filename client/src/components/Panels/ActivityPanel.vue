@@ -25,14 +25,14 @@ const emit = defineEmits(["goToAll"]);
             <slot />
         </div>
 
-        <BButton
+        <!-- <BButton
             v-if="props.goToAllTitle"
             class="activity-panel-footer"
             variant="primary"
             :data-description="`props.mainButtonText button`"
             @click="emit('goToAll')">
             {{ props.goToAllTitle }}
-        </BButton>
+        </BButton> -->
     </div>
 </template>
 

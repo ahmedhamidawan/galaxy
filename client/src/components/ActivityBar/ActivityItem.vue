@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import { library } from "@fortawesome/fontawesome-svg-core";
+import { faChevronCircleLeft, faChevronCircleRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { computed } from "vue";
 import { useRouter } from "vue-router/composables";
 
 import TextShort from "@/components/Common/TextShort.vue";
 import Popper from "@/components/Popper/Popper.vue";
+
+library.add(faChevronCircleLeft, faChevronCircleRight);
 
 const router = useRouter();
 
@@ -18,12 +23,14 @@ export interface Props {
     icon?: string | object;
     indicator?: number;
     isActive?: boolean;
+    sideBarActive?: boolean;
     tooltip?: string;
     tooltipPlacement?: string;
     progressPercentage?: number;
     progressStatus?: string;
     options?: Option[];
     to?: string;
+    type?: 'default' | 'panel' | 'split';
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -37,16 +44,35 @@ const props = withDefaults(defineProps<Props>(), {
     to: undefined,
     tooltip: undefined,
     tooltipPlacement: "right",
+    type: "default",
 });
 
 const emit = defineEmits<{
     (e: "click"): void;
 }>();
 
+const hasRightButton = computed(() => props.type === 'panel' || props.type === 'split');
+
 function onClick(evt: MouseEvent): void {
-    emit("click");
-    if (props.to) {
-        router.push(props.to);
+    if (props.type === 'default' || props.type === 'panel') {
+        emit("click");
+        if (props.to) {
+            router.push(props.to);
+        }
+    }
+}
+
+function onClickLeft(evt: MouseEvent): void {
+    if (props.type === 'split') {
+        if (props.to) {
+            router.push(props.to);
+        }
+    }
+}
+
+function onClickRight(evt: MouseEvent): void {
+    if (props.type === 'split') {
+        emit("click");
     }
 }
 </script>
@@ -57,7 +83,7 @@ function onClick(evt: MouseEvent): void {
             <div :id="id" class="activity-item" @click="onClick">
                 <b-nav-item
                     class="position-relative my-1 p-2"
-                    :class="{ 'nav-item-active': isActive }"
+                    :class="{ 'nav-item-active': isActive, 'split-button': props.type === 'split' }"
                     :aria-label="title | l">
                     <span v-if="progressStatus" class="progress">
                         <div
@@ -70,15 +96,22 @@ function onClick(evt: MouseEvent): void {
                                 width: `${Math.round(progressPercentage)}%`,
                             }" />
                     </span>
-                    <span class="position-relative">
-                        <div class="nav-icon">
-                            <span v-if="indicator > 0" class="nav-indicator" data-description="activity indicator">
-                                {{ Math.min(indicator, 99) }}
-                            </span>
-                            <FontAwesomeIcon :icon="icon" />
+                    <div class="d-flex align-items-center">
+                        <div class="position-relative router-opener" @click="onClickLeft">
+                            <div class="nav-icon">
+                                <span v-if="indicator > 0" class="nav-indicator" data-description="activity indicator">
+                                    {{ Math.min(indicator, 99) }}
+                                </span>
+                                <FontAwesomeIcon :icon="icon" />
+                            </div>
+                            <TextShort v-if="title" :text="title" class="nav-title" />
+                            
                         </div>
-                        <TextShort v-if="title" :text="title" class="nav-title" />
-                    </span>
+                        <div v-if="hasRightButton" class="panel-opener h-100" @click="onClickRight">
+                            <FontAwesomeIcon v-if="!props.sideBarActive" :icon="faChevronCircleRight" />
+                            <FontAwesomeIcon v-else :icon="faChevronCircleLeft" />
+                        </div>
+                    </div>
                 </b-nav-item>
             </div>
         </template>
@@ -124,6 +157,38 @@ function onClick(evt: MouseEvent): void {
     align-items: center;
     align-content: center;
     justify-content: center;
+
+    &.split-button {
+        .router-opener {
+            border-top-left-radius: $border-radius-extralarge;
+            border-bottom-left-radius: $border-radius-extralarge;
+        }
+        .panel-opener {
+            &:hover {
+                background: $brand-primary;
+            }
+        }        
+    }
+    &:not(.split-button) {
+        .router-opener {
+            border-radius: $border-radius-extralarge;
+        }
+    }
+
+    // .router-opener {
+    //     &:hover {
+    //         background: $gray-300;
+    //     }
+    // }
+
+    .panel-opener {
+        position: absolute;
+        right: 0;
+        display: grid;
+        place-items: center;
+        border-top-right-radius: $border-radius-extralarge;
+        border-bottom-right-radius: $border-radius-extralarge;
+    }
 }
 
 .nav-item-active {

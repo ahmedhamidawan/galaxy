@@ -13,6 +13,7 @@ export interface Props {
     title: string;
     icon: string;
     isActive: boolean;
+    sideBarActive: boolean;
 }
 
 defineProps<Props>();
@@ -34,6 +35,9 @@ const tooltip = computed(() =>
         :icon="icon"
         :indicator="totalUnreadCount"
         :is-active="isActive"
+        :side-bar-active="sideBarActive"
+        to="/user/notifications"
+        type="split"
         :title="title"
         :tooltip="tooltip"
         @click="emit('click')" />
