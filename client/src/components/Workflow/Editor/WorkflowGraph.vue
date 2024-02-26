@@ -94,6 +94,7 @@ import ZoomControl from "@/components/Workflow/Editor/ZoomControl.vue";
 interface InvocationGraphStep extends WorkflowStep {
     invocation_outputs: any;
     state?: string;
+    jobs?: any;
 }
 type Step = WorkflowStep | InvocationGraphStep;
 

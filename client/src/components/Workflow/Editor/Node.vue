@@ -14,6 +14,7 @@
         @pan-by="onPanBy">
         <div
             class="node-header unselectable clearfix card-header py-1 px-2"
+            :class="invocation && step.state === 'terminal' ? 'header-danger' : 'header-primary'"
             @click="makeActive"
             @keyup.enter="makeActive">
             <b-button-group class="float-right">
@@ -107,6 +108,13 @@
                         :item-id="output.id"
                         :item-src="output.src"
                         un-expandable />
+                </span>
+                <span v-if="step.state === 'terminal'">
+                    <div v-for="job in step.jobs" :key="job.id">
+                        <div class="rule" />
+                        <pre v-if="job.tool_stderr" class="code">{{ job.tool_stderr }}</pre>
+                        <pre v-else-if="job.tool_stdout" class="code">{{ job.tool_stdout }}</pre>
+                    </div>
                 </span>
             </span>
             <div v-if="showRule" class="rule" />
@@ -225,7 +233,7 @@ const title = computed(() => props.step.label || props.step.name);
 const idString = computed(() => `wf-node-step-${props.id}`);
 const showRule = computed(
     () =>
-        (props.invocation && props.step.invocation_outputs) ||
+        (props.invocation && (props.step.invocation_outputs || props.step.state === 'terminal')) ||
         (props.step.inputs?.length > 0 && props.step.outputs?.length > 0)
 );
 const iconClass = computed(() => `icon fa fa-fw ${WorkflowIcons[props.step.type]}`);
@@ -343,8 +351,13 @@ function makeActive() {
 
     .node-header {
         cursor: move;
-        background: $brand-primary;
         color: $white;
+        &.header-primary {
+            background-color: $brand-primary;
+        }
+        &.header-danger {
+            background-color: $brand-danger;
+        }
     }
 
     .node-body {
