@@ -18,6 +18,10 @@ import WorkflowGraph from "@/components/Workflow/Editor/WorkflowGraph.vue";
 
 const TERMINAL_JOB_STATES = ["error", "deleted", "paused"];
 
+type StepJobSummary =
+    | components["schemas"]["InvocationStepJobsResponseStepModel"]
+    | components["schemas"]["InvocationStepJobsResponseJobModel"]
+    | components["schemas"]["InvocationStepJobsResponseCollectionJobsModel"];
 type InvocationStep = components["schemas"]["InvocationStep"];
 type InvocationStepOutput = components["schemas"]["InvocationStepOutput"];
 type InvocationStepCollectionOutput = components["schemas"]["InvocationStepCollectionOutput"];
@@ -28,14 +32,10 @@ type Outputs = {
 interface GraphStep extends Step {
     invocation_outputs: Outputs;
     state?: components["schemas"]["InvocationStepState"] | components["schemas"]["JobState"] | "terminal";
-    jobs?: InvocationStep["jobs"];
+    jobs: StepJobSummary["states"];
 }
 
 const props = defineProps({
-    workflowId: {
-        type: String,
-        required: true,
-    },
     invocation: {
         type: Object,
         required: true,
@@ -92,6 +92,11 @@ watch(
         errorMessage.value = "";
 
         try {
+            const { data: stepJobsSummaryData } = await axios.get(
+                withPrefix(`/api/invocations/${props.invocation.id}/step_jobs_summary`)
+            );
+            const stepJobsSummary: StepJobSummary[] = stepJobsSummaryData;
+
             const { data: loadedWorkflow } = await axios.get(withPrefix(`/workflow/load_workflow?_=true&id=${wfId}`));
             workflow.value = loadedWorkflow;
 
@@ -101,84 +106,89 @@ watch(
             for (let i = 0; i < Object.keys(originalSteps).length; i++) {
                 const graphStepFromWfStep = { ...originalSteps[i], invocation_outputs: {} } as GraphStep;
 
-                if (props.invocation.steps[i]) {
+                const invocationStep = stepJobsSummary[i];
+                if (invocationStep) {
                     /** There is an invocation step for this workflow step */
 
                     // get full invocation step
-                    const { data: invocationStep }: AxiosResponse<InvocationStep> = await axios.get(
-                        withPrefix(`/api/invocations/steps/${props.invocation.steps[i].id}`)
-                    );
+                    // const { data: invocationStep }: AxiosResponse<InvocationStep> = await axios.get(
+                    //     withPrefix(`/api/invocations/steps/${props.invocation.steps[i].id}`)
+                    // );
 
-                    if (
-                        ["scheduled", "cancelled", "failed"].includes(invocationStep.state as string) &&
-                        invocationStep.jobs?.length && invocationStep.jobs?.length > 0 &&
-                        invocationStep.jobs.every((job: any) => TERMINAL_JOB_STATES.includes(job.state))
-                    ) {
-                        graphStepFromWfStep.state = "terminal";
+                    // if (
+                    //     ["scheduled", "cancelled", "failed"].includes(invocationStep.state as string) &&
+                    //     invocationStep.jobs?.length && invocationStep.jobs?.length > 0 &&
+                    //     invocationStep.jobs.every((job: any) => TERMINAL_JOB_STATES.includes(job.state))
+                    // ) {
+                    //     graphStepFromWfStep.state = "terminal";
 
-                        // TODO: maybe only 1 job is fine?
-                        // for each job in invocationStep.jobs, get the job details and add them to the graphStep
-                        for (const job of invocationStep.jobs) {
-                            if (!jobStore.getJob(job.id)) {
-                                await jobStore.fetchJob(job.id);
-                            }
-                            const jobDetails = jobStore.getJob(job.id);
-                            if (jobDetails) {
-                                if (!graphStepFromWfStep.jobs) {
-                                    graphStepFromWfStep.jobs = [];
-                                }
-                                graphStepFromWfStep.jobs?.push(jobDetails as any); // TODO: fix typing
-                            }
-                        }
+                    //     // TODO: maybe only 1 job is fine?
+                    //     // for each job in invocationStep.jobs, get the job details and add them to the graphStep
+                    //     for (const job of invocationStep.jobs) {
+                    //         if (!jobStore.getJob(job.id)) {
+                    //             await jobStore.fetchJob(job.id);
+                    //         }
+                    //         const jobDetails = jobStore.getJob(job.id);
+                    //         if (jobDetails) {
+                    //             if (!graphStepFromWfStep.jobs) {
+                    //                 graphStepFromWfStep.jobs = [];
+                    //             }
+                    //             graphStepFromWfStep.jobs?.push(jobDetails as any); // TODO: fix typing
+                    //         }
+                    //     }
 
-                        // console.log("Step", i, "is terminal", invocationStep.state, invocationStep.jobs);
-                    } else if (invocationStep.state === "scheduled") {
-                        graphStepFromWfStep.state = "ok";
-                        // console.log("Step", i, "is ok", invocationStep.state);
-                    } else {
-                        graphStepFromWfStep.state = invocationStep.state || 'ok';
-                        // console.log("Step", i, "is not terminal", invocationStep.state);
+                    //     // console.log("Step", i, "is terminal", invocationStep.state, invocationStep.jobs);
+                    // } else if (invocationStep.state === "scheduled") {
+                    //     graphStepFromWfStep.state = "ok";
+                    //     // console.log("Step", i, "is ok", invocationStep.state);
+                    // } else {
+                    //     graphStepFromWfStep.state = invocationStep.state || 'ok';
+                    //     // console.log("Step", i, "is not terminal", invocationStep.state);
+                    // }
+
+                    if (invocationStep.states && Object.keys(invocationStep.states).includes("error")) {
+                        graphStepFromWfStep.state = "error";
+                    } else if (!invocationStep.states) {
+                        graphStepFromWfStep.state = invocationStep.populated_state;
                     }
 
+                    graphStepFromWfStep.jobs = invocationStep.states;
                     // for each output of the workflow step, get the corresponding output of the invocation step
-                    graphStepFromWfStep?.outputs?.forEach((output: OutputTerminalSource, _) => {
-                        let currInvOutput;
-                        const collectionOutput = invocationStep.output_collections?.[output.name];
-                        if (collectionOutput && (("collection" in output && output.collection) || collectionOutput.src === "hdca")) {
-                            currInvOutput = collectionOutput;
-                        } else if ("parameter" in output && output.parameter) {
-                            // TODO: deal with this case
-                        } else if (invocationStep.outputs) {
-                            currInvOutput = invocationStep.outputs[output.name];
-                        }
-                        if (i == 2) {
-                            console.log("ahmed", output);
-                        }
+                    // graphStepFromWfStep?.outputs?.forEach((output: OutputTerminalSource, _) => {
+                    //     let currInvOutput;
+                    //     const collectionOutput = invocationStep.output_collections?.[output.name];
+                    //     if (collectionOutput && (("collection" in output && output.collection) || collectionOutput.src === "hdca")) {
+                    //         currInvOutput = collectionOutput;
+                    //     } else if ("parameter" in output && output.parameter) {
+                    //         // TODO: deal with this case
+                    //     } else if (invocationStep.outputs) {
+                    //         currInvOutput = invocationStep.outputs[output.name];
+                    //     }
 
-                        // if there is an output for this invocation step
-                        if (currInvOutput) {
-                            // add the invocation output to the current invocation graph step
-                            graphStepFromWfStep.invocation_outputs[output.name] = currInvOutput;
-                        } else if (!output.optional) {
-                            // there is no output for this invocation step, and it is not optional
-                            // graphStepFromWfStep.state = "error";
+                    //     // if there is an output for this invocation step
+                    //     if (currInvOutput) {
+                    //         // add the invocation output to the current invocation graph step
+                    //         graphStepFromWfStep.invocation_outputs[output.name] = currInvOutput;
+                    //     } else if (!output.optional) {
+                    //         // there is no output for this invocation step, and it is not optional
+                    //         // graphStepFromWfStep.state = "error";
 
-
-                            // // TODO: This probably doesn't belong here
-                            // const commentContent = `Step ${i} did not create output ${output.name}.`;
-                            // console.log("Position etc.", graphStepFromWfStep.position, graphStepFromWfStep);
-                            // const currentComment: MarkdownWorkflowComment = {
-                            //     id: comments.value.length,
-                            //     position: [200, 200],
-                            //     size: [200, 200],
-                            //     type: "markdown",
-                            //     color: "red",
-                            //     data: { text: `Failure.\n\n\n ${commentContent}` },
-                            // };
-                            // comments.value.push(currentComment);
-                        }
-                    });
+                    //         // // TODO: This probably doesn't belong here
+                    //         // const commentContent = `Step ${i} did not create output ${output.name}.`;
+                    //         // console.log("Position etc.", graphStepFromWfStep.position, graphStepFromWfStep);
+                    //         // const currentComment: MarkdownWorkflowComment = {
+                    //         //     id: comments.value.length,
+                    //         //     position: [200, 200],
+                    //         //     size: [200, 200],
+                    //         //     type: "markdown",
+                    //         //     color: "red",
+                    //         //     data: { text: `Failure.\n\n\n ${commentContent}` },
+                    //         // };
+                    //         // comments.value.push(currentComment);
+                    //     }
+                    // });
                 } else {
+                    graphStepFromWfStep.state = "scheduled";
                     // /** There is no invocation step for this workflow step,
                     //  * so... TODO: create an errored step / place a comment?
                     //  */
@@ -194,12 +204,12 @@ watch(
                     // };
                     // comments.value.push(currentComment);
                 }
-
                 steps.value[i] = graphStepFromWfStep;
             }
 
+            console.log("Steps", steps.value);
             const fullInvocation = {
-                steps: steps.value as any,
+                steps: steps.value as any, // TODO: fix typing
                 comments: comments.value, // TODO: what about original WF comments
             };
 

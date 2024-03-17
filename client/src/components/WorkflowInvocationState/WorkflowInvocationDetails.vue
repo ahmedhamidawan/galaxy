@@ -67,9 +67,6 @@ function dataInputStepLabel(key: number, input: HasSrc) {
                     :workflow="workflow"
                     :workflow-step="step" />
             </b-tab>
-            <b-tab v-if="workflow" title="Graph">
-                <InvocationGraph :workflow-id="workflow.id" :invocation="invocation" />
-            </b-tab>
         </b-tabs>
     </div>
 </template>
