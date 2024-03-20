@@ -53,6 +53,10 @@
                             </a>
                         </b>
                     </p>
+                    <h4 class="mb-3 h-md">What might have happened?</h4>
+                    <b-card v-if="jobDetails.tool_stderr">
+                        <ChatGXY view="error" :query="jobDetails.tool_stderr" context="tool_error" />
+                    </b-card>
                     <h4 class="mb-3 h-md">Issue Report</h4>
                     <b-alert
                         v-for="(resultMessage, index) in resultMessages"
@@ -88,6 +92,7 @@
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { faBug } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import ChatGXY from "components/ChatGXY";
 import FormElement from "components/Form/FormElement";
 import { DatasetProvider } from "components/providers";
 import { JobDetailsProvider, JobProblemProvider } from "components/providers/JobProvider";
@@ -107,6 +112,7 @@ export default {
         DatasetErrorDetails,
         FontAwesomeIcon,
         FormElement,
+        ChatGXY,
         JobDetailsProvider,
         JobProblemProvider,
     },
