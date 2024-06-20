@@ -71,6 +71,7 @@ import GridInvocation from "@/components/Grid/GridInvocation.vue";
 import GridVisualization from "@/components/Grid/GridVisualization.vue";
 import HistoryArchiveWizard from "@/components/History/Archiving/HistoryArchiveWizard.vue";
 import HistoryDatasetPermissions from "@/components/History/HistoryDatasetPermissions.vue";
+import UserJobsList from "@/components/Job/UserJobsList.vue";
 import NotificationsList from "@/components/Notifications/NotificationsList.vue";
 import EditObjectStoreInstance from "@/components/ObjectStore/Instances/EditInstance.vue";
 import ManageObjectStoreIndex from "@/components/ObjectStore/Instances/ManageIndex.vue";
@@ -343,6 +344,10 @@ export function getRouter(Galaxy) {
                     {
                         path: "interactivetool_entry_points/list",
                         component: InteractiveTools,
+                    },
+                    {
+                        path: "jobs/list",
+                        component: UserJobsList,
                     },
                     {
                         path: "jobs/submission/success",

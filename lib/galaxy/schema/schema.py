@@ -2032,6 +2032,11 @@ class JobSummary(JobBaseModel):
             "Only the owner of the job and administrators can see this value."
         ),
     )
+    invocation_id: Optional[EncodedDatabaseIdField] = Field(
+        None,
+        title="Invocation ID",
+        description="The id of the workflow invocation associated with this job.",
+    )
 
 
 class DatasetSourceIdBase(Model):

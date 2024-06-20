@@ -1975,13 +1975,15 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         return requires_sharing
 
     def to_dict(self, view="collection", system_details=False):
-        if view == "admin_job_list":
+        if view == "admin_job_list" or view == "list":
             rval = super().to_dict(view="collection")
         else:
             rval = super().to_dict(view=view)
         rval["tool_id"] = self.tool_id
         rval["tool_version"] = self.tool_version
         rval["history_id"] = self.history_id
+        if view == "list":
+            rval["invocation_id"] = getattr(self.workflow_invocation_step, "workflow_invocation_id", None)
         if system_details or view == "admin_job_list":
             # System level details that only admins should have.
             rval["external_id"] = self.job_runner_external_id

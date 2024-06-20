@@ -29,6 +29,7 @@ from galaxy.webapps.galaxy.services.base import ServiceBase
 class JobIndexViewEnum(str, Enum):
     collection = "collection"
     admin_job_list = "admin_job_list"
+    list = "list"
 
 
 class JobIndexPayload(JobIndexQueryPayload):
