@@ -11,12 +11,16 @@ interface Props {
     wait?: boolean;
     tooltip?: string;
     disabled?: boolean;
+    variant?: string;
+    hasPlayIcon?: boolean;
 }
 
 withDefaults(defineProps<Props>(), {
     wait: false,
-    tooltip: undefined,
+    tooltip: "",
     disabled: false,
+    variant: "primary",
+    hasPlayIcon: true,
 });
 </script>
 
@@ -29,17 +33,17 @@ withDefaults(defineProps<Props>(), {
         title="Please Wait..."
         class="d-flex flex-nowrap align-items-center text-nowrap">
         <FontAwesomeIcon :icon="faSpinner" class="mr-2" spin />
-        {{ title }}
+        <slot>{{ title }}</slot>
     </BButton>
     <BButton
         v-else
         v-b-tooltip.hover.bottom
-        variant="primary"
+        :variant="variant"
         class="d-flex flex-nowrap align-items-center text-nowrap"
         :title="tooltip"
         :disabled="disabled"
         @click="$emit('onClick')">
-        <FontAwesomeIcon :icon="faPlay" class="mr-2" />
-        {{ title }}
+        <FontAwesomeIcon v-if="hasPlayIcon" :icon="faPlay" class="mr-2" />
+        <slot>{{ title }}</slot>
     </BButton>
 </template>
