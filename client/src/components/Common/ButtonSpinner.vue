@@ -1,26 +1,25 @@
 <script setup lang="ts">
-import { library } from "@fortawesome/fontawesome-svg-core";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import { faPlay, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BButton } from "bootstrap-vue";
 
-library.add(faPlay, faSpinner);
-
 interface Props {
-    title: string;
+    title?: string;
     wait?: boolean;
     tooltip?: string;
     disabled?: boolean;
     variant?: string;
-    hasPlayIcon?: boolean;
+    icon?: IconDefinition;
 }
 
 withDefaults(defineProps<Props>(), {
+    title: "",
     wait: false,
     tooltip: "",
     disabled: false,
     variant: "primary",
-    hasPlayIcon: true,
+    icon: undefined,
 });
 </script>
 
@@ -32,8 +31,10 @@ withDefaults(defineProps<Props>(), {
         variant="info"
         title="Please Wait..."
         class="d-flex flex-nowrap align-items-center text-nowrap">
-        <FontAwesomeIcon :icon="faSpinner" class="mr-2" spin />
-        <slot>{{ title }}</slot>
+        <FontAwesomeIcon :icon="faSpinner" fixed-width spin />
+        <slot>
+            <span v-if="title">{{ title }}</span>
+        </slot>
     </BButton>
     <BButton
         v-else
@@ -43,7 +44,9 @@ withDefaults(defineProps<Props>(), {
         :title="tooltip"
         :disabled="disabled"
         @click="$emit('onClick')">
-        <FontAwesomeIcon v-if="hasPlayIcon" :icon="faPlay" class="mr-2" />
-        <slot>{{ title }}</slot>
+        <FontAwesomeIcon :icon="!icon ? faPlay : icon" fixed-width />
+        <slot>
+            <span v-if="title">{{ title }}</span>
+        </slot>
     </BButton>
 </template>
