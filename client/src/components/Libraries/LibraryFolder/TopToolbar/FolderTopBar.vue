@@ -15,6 +15,7 @@ import { storeToRefs } from "pinia";
 import { computed, reactive, ref } from "vue";
 
 import { GalaxyApi } from "@/api";
+import type { CollectionType } from "@/components/History/adapters/buildCollectionModal";
 import { Services } from "@/components/Libraries/LibraryFolder/services";
 import mod_add_datasets from "@/components/Libraries/LibraryFolder/TopToolbar/add-datasets";
 import { deleteSelectedItems } from "@/components/Libraries/LibraryFolder/TopToolbar/delete-selected";
@@ -28,6 +29,7 @@ import { Toast } from "@/composables/toast";
 import { useDbKeyStore } from "@/stores/dbKeyStore";
 import { useUserStore } from "@/stores/userStore";
 
+import CollectionCreatorModal from "@/components/Collections/CollectionCreatorModal.vue";
 import FolderDetails from "@/components/Libraries/LibraryFolder/FolderDetails/FolderDetails.vue";
 import LibraryBreadcrumb from "@/components/Libraries/LibraryFolder/LibraryBreadcrumb.vue";
 import SearchField from "@/components/Libraries/LibraryFolder/SearchField.vue";
@@ -113,6 +115,12 @@ const datasetManipulation = computed(() => {
 const totalRows = computed(() => {
     return props.metadata?.total_rows ?? 0;
 });
+
+// Variables for Collection Creation
+const collectionModalType = ref<CollectionType | null>(null);
+const collectionModalShow = ref(false);
+const collectionSelection = ref<any[]>([]);
+const collectionHistoryId = ref<string | null>(null);
 
 function updateSearch(value: string) {
     emit("updateSearch", value);
@@ -211,6 +219,16 @@ async function importToHistoryModal(isCollection: boolean) {
         if (isCollection) {
             new mod_import_collection.ImportCollectionModal({
                 selected: checkedItems,
+                onCollectionImport: async (collectionType: string, selection: any, historyId: string) => {
+                    try {
+                        collectionHistoryId.value = historyId;
+                        collectionModalType.value = collectionType as CollectionType;
+                        collectionSelection.value = selection;
+                        collectionModalShow.value = true;
+                    } catch (err) {
+                        console.error(err);
+                    }
+                },
             });
         } else {
             new mod_import_dataset.ImportDatasetModal({
@@ -449,5 +467,13 @@ async function onAddDatasetsFromHistory(selectedDatasets: SelectionItem[]) {
             :folder-id="props.folderId"
             @onSelect="onAddDatasetsFromHistory"
             @onClose="onAddDatasets" />
+
+        <CollectionCreatorModal
+            v-if="collectionModalType && collectionHistoryId"
+            :history-id="collectionHistoryId"
+            :collection-type="collectionModalType"
+            :selected-items="collectionSelection"
+            :show-modal.sync="collectionModalShow"
+            default-hide-source-items />
     </div>
 </template>
