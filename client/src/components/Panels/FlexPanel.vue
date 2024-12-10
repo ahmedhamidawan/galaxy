@@ -89,6 +89,7 @@ const sideClasses = computed(() => ({
             @focusin="hoverToggle = true"
             @mouseout="hoverToggle = false"
             @focusout="hoverToggle = false">
+            <span class="vertical-text">History</span>
             <FontAwesomeIcon v-if="side === 'left'" fixed-width icon="fa-chevron-left" />
             <FontAwesomeIcon v-else icon="fa-chevron-right" fixed-width />
         </button>
@@ -106,6 +107,7 @@ const sideClasses = computed(() => ({
                 show = true;
                 hoverToggle = false;
             ">
+            <span class="vertical-text">History</span>
             <FontAwesomeIcon v-if="side === 'right'" fixed-width icon="fa-chevron-left" />
             <FontAwesomeIcon v-else icon="fa-chevron-right" fixed-width />
         </button>
@@ -167,6 +169,11 @@ $border-width: 6px;
     transition: width 0.1s, left 0.1s, right 0.1s;
     border-style: none;
 
+    .vertical-text {
+        transform: rotate(180deg);
+        text-orientation: mixed;
+    }
+
     &:hover,
     &.show,
     &:focus {
@@ -192,6 +199,12 @@ $border-width: 6px;
         border-bottom-right-radius: 0;
     }
 
+    &.open {
+        .vertical-text {
+            writing-mode: vertical-rl;
+        }
+    }
+
     &.closed {
         --width: 0.75rem;
         border-style: solid;
@@ -213,6 +226,10 @@ $border-width: 6px;
         &.left {
             right: unset;
             left: 0;
+        }
+
+        .vertical-text {
+            writing-mode: sideways-lr;
         }
     }
 }
