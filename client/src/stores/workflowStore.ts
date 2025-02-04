@@ -5,7 +5,7 @@ import { GalaxyApi } from "@/api";
 import type { StoredWorkflowDetailed } from "@/api/workflows";
 import { type Steps } from "@/stores/workflowStepStore";
 
-export interface Workflow extends Omit<StoredWorkflowDetailed, 'steps'> {
+export interface Workflow extends Omit<StoredWorkflowDetailed, "steps"> {
     steps: Steps;
 }
 
