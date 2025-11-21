@@ -3887,6 +3887,11 @@ class ChatPayload(Model):
         title="Exchange ID",
         description="The ID of an existing chat exchange to continue.",
     )
+    dataset_ids: Optional[list[str]] = Field(
+        default=None,
+        title="Dataset Identifiers",
+        description="Optional list of encoded dataset IDs selected by the user.",
+    )
 
 
 class ChatResponse(BaseModel):
