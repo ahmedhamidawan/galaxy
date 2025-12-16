@@ -12,7 +12,7 @@ Highlights
 
 Discover some of the exciting new features, enhancements, and improvements in Galaxy 25.1.
 
-A Fresh, Modern History List Interface
+A Test Change 2
 --------------------------------------
 
 Galaxy 25.1 introduces a redesigned history list that makes managing your histories more intuitive and
