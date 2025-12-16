@@ -26,7 +26,7 @@ To update an existing Galaxy repository run:
 See the `community hub <https://galaxyproject.org/develop/source-code/>`__ for additional details on source code locations.
 
 
-Admin Notes
+Admin Notes (Test Change against dev)
 ===========================================================
 
 **Database Migrations will require stopping the Galaxy instance**
