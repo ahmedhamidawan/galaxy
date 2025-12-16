@@ -65,5 +65,6 @@ jobs:
           config-name: release-drafter.yml
           version: ${{ inputs.version || steps.galaxy-version.outputs.version }}
           filter-by-commitish: true
+          commitish: ${{ github.event.pull_request.base.ref || github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
