@@ -54,17 +54,8 @@ jobs:
             exit 0
           fi
 
-          # Check if a draft exists for a DIFFERENT version (only one draft at a time)
-          EXISTING_DRAFT=$(gh release list --limit 50 --json tagName,isDraft --jq '.[] | select(.isDraft == true) | .tagName' | head -1)
-
-          if [ -n "$EXISTING_DRAFT" ] && [ "$EXISTING_DRAFT" != "v${VERSION}" ]; then
-            echo "Draft release $EXISTING_DRAFT already exists (for different version). Skipping v${VERSION}."
-            echo "Only one draft release at a time is supported."
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "Proceeding with draft for v${VERSION}."
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+          echo "Proceeding with draft for v${VERSION}."
+          echo "skip=false" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
