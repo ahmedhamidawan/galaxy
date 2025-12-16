@@ -73,5 +73,6 @@ jobs:
         with:
           config-name: release-drafter.yml
           version: ${{ inputs.version || steps.galaxy-version.outputs.version }}
+          filter-by-commitish: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
