@@ -26,7 +26,7 @@ To update an existing Galaxy repository run:
 See the `community hub <https://galaxyproject.org/develop/source-code/>`__ for additional details on source code locations.
 
 
-Admin Notes
+Admin Notes (Test Change against 25.1 again)
 ===========================================================
 
 **Database Migrations will require stopping the Galaxy instance**
@@ -45,12 +45,7 @@ The following configuration options are new
 config/galaxy.yml.sample:galaxy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--  mapping.galaxy.mapping.allow_local_account_creation
--  mapping.galaxy.mapping.citation_bibtex
--  mapping.galaxy.mapping.disable_local_accounts
--  mapping.galaxy.mapping.enable_tool_generated_tours
--  mapping.galaxy.mapping.oidc_auth_pipeline
--  mapping.galaxy.mapping.oidc_auth_pipeline_extra
+-  mapping.tool_shed.mapping.allow_local_account_creation
 
 
 Removed
@@ -61,8 +56,7 @@ The following configuration options have been completely removed
 config/galaxy.yml.sample:galaxy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
--  mapping.galaxy.mapping.allow_user_creation
--  mapping.galaxy.mapping.enable_tool_document_cache
+-  mapping.tool_shed.mapping.allow_user_creation
 
 
 Deprecation Notices
