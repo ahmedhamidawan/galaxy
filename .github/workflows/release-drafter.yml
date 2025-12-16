@@ -9,11 +9,6 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to use for the release draft (optional)'
-        required: false
-        type: string
 
 permissions:
   contents: read
@@ -63,8 +58,6 @@ jobs:
         if: steps.check-draft.outputs.skip == 'false'
         with:
           config-name: release-drafter.yml
-          version: ${{ inputs.version || steps.galaxy-version.outputs.version }}
-          filter-by-commitish: true
-          commitish: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          version: ${{ steps.galaxy-version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
