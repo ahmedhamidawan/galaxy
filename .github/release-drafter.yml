@@ -11,13 +11,6 @@
 name-template: 'Galaxy $RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 
-# Filter PRs by commitish - this allows multiple concurrent drafts
-filter-by-commitish: true
-# TODO: Update this commitish value based on which branch this config is for:
-# - For dev branch: use 'dev'
-# - For release branches: use 'release_25.1', 'release_26.0', etc.
-commitish: dev
-
 # Categories for organizing release notes using existing Galaxy labels
 categories:
   - title: '🎉 Major Changes'
