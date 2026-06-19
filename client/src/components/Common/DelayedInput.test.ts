@@ -43,6 +43,51 @@ describe("DelayedInput.vue", () => {
         expect(wrapper.emitted("change")?.[0]).toEqual([""]);
     });
 
+    describe("hasSearchButton mode", () => {
+        it("does not emit while typing", async () => {
+            const wrapper = mountDelayedInput({ value: "", hasSearchButton: true });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("galaxy");
+
+            expect(wrapper.emitted("input")).toBeFalsy();
+            expect(wrapper.emitted("change")).toBeFalsy();
+        });
+
+        it("emits on Enter key", async () => {
+            const wrapper = mountDelayedInput({ value: "", hasSearchButton: true });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("galaxy");
+            await input.trigger("keydown", { key: "Enter" });
+
+            expect(wrapper.emitted("input")?.[0]).toEqual(["galaxy"]);
+            expect(wrapper.emitted("change")?.[0]).toEqual(["galaxy"]);
+        });
+
+        it("emits on search icon click", async () => {
+            const wrapper = mountDelayedInput({ value: "", hasSearchButton: true });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("galaxy");
+            await wrapper.find(".search-icon").trigger("click");
+
+            expect(wrapper.emitted("input")?.[0]).toEqual(["galaxy"]);
+            expect(wrapper.emitted("change")?.[0]).toEqual(["galaxy"]);
+        });
+
+        it("does not emit on Escape, only clears the input", async () => {
+            const wrapper = mountDelayedInput({ value: "", hasSearchButton: true });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("galaxy");
+            await input.trigger("keydown", { key: "Escape" });
+
+            expect((input.element as HTMLInputElement).value).toBe("");
+            expect(wrapper.emitted("input")).toBeFalsy();
+        });
+    });
+
     describe("delayed emit", () => {
         beforeEach(() => {
             vi.useFakeTimers();

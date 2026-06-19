@@ -20,7 +20,7 @@ interface Props {
     autocompleteValues?: string[];
     autocompletePrefix?: string;
     /** Adds a search button, and requires pressing Enter to search
-     * TODO: Doesn't do anything as of now, just dummy
+     * instead of searching as you type; meaning delay is effectively disabled.
      */
     hasSearchButton?: boolean;
 }
@@ -91,6 +91,11 @@ function delayQuery(query: string) {
 function setQuery(queryNew: string) {
     emit("input", queryNew);
     emit("change", queryNew);
+}
+
+function submitSearch() {
+    clearTimer();
+    setQuery(queryInput.value ?? "");
 }
 
 function getAutocompleteMatch(query: string): AutocompleteMatch | null {
@@ -250,6 +255,12 @@ function onKeydown(event: KeyboardEvent) {
         }
     }
 
+    if (event.key === "Enter" && props.hasSearchButton) {
+        event.preventDefault();
+        submitSearch();
+        return;
+    }
+
     clearBox(event);
 }
 
@@ -266,7 +277,9 @@ watch(
     () => queryInput.value,
     () => {
         syncSuggestions();
-        delayQuery(queryInput.value ?? "");
+        if (!props.hasSearchButton) {
+            delayQuery(queryInput.value ?? "");
+        }
     },
 );
 
@@ -317,7 +330,8 @@ defineExpose({
                 role="button"
                 :icon="faSearch"
                 :style="{ right: searchIconRight }"
-                fixed-width />
+                fixed-width
+                @click="submitSearch" />
 
             <BInputGroupAppend ref="appendEl">
                 <GButton
