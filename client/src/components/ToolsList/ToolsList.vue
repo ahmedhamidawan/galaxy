@@ -22,6 +22,7 @@ import GButton from "../BaseComponents/GButton.vue";
 import GButtonGroup from "../BaseComponents/GButtonGroup.vue";
 import FilterMenu from "../Common/FilterMenu.vue";
 import Heading from "../Common/Heading.vue";
+import ToolsListAiResults from "./ToolsListAiResults.vue";
 import ToolsListSectionFilters from "./ToolsListSectionFilters.vue";
 import ToolsListTable from "./ToolsListTable.vue";
 
@@ -534,13 +535,17 @@ function onToggleView(newView: ListViewMode) {
                 <p v-localize>Enter a search term above to discover tools.</p>
             </div>
 
-            <ToolsListTable
-                v-else
-                :tools="itemsLoaded"
-                :loading="loading"
-                :has-owner-filter="hasOwnerFilter"
-                :grid-view="currentListViewMode === 'grid'"
-                @apply-filter="applyFilter" />
+            <template v-else>
+                <!-- WIP: Doesn't emit the results -->
+                <ToolsListAiResults :query="whooshQuery" />
+
+                <ToolsListTable
+                    :tools="itemsLoaded"
+                    :loading="loading"
+                    :has-owner-filter="hasOwnerFilter"
+                    :grid-view="currentListViewMode === 'grid'"
+                    @apply-filter="applyFilter" />
+            </template>
         </div>
     </section>
 </template>

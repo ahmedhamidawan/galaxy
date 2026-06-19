@@ -5,12 +5,15 @@ import flushPromises from "flush-promises";
 import { setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useServerMock } from "@/api/client/__mocks__";
 import toolsListUntyped from "@/components/ToolsView/testData/toolsList.json";
 import type { Tool } from "@/stores/toolStore";
 import { useToolStore } from "@/stores/toolStore";
 
 import ToolsList from "./ToolsList.vue";
 import ToolsListTable from "./ToolsListTable.vue";
+
+const { server, http } = useServerMock();
 
 const FILTER_INPUTS = {
     "[placeholder='any name']": "name-filter",
@@ -87,6 +90,12 @@ describe("ToolsList", () => {
         vi.spyOn(toolStore, "fetchToolSections").mockResolvedValue();
         vi.spyOn(toolStore, "fetchToolTagsMapping").mockResolvedValue();
         vi.spyOn(toolStore, "fetchHelpForId").mockResolvedValue();
+
+        server.use(
+            http.post("/api/chat", ({ response }) => {
+                return response(200).json({ response: "AI tool suggestion", agent_response: null } as any);
+            }),
+        );
 
         // Clear the router mock between tests
         routerPushMock.mockClear();
