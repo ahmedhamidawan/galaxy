@@ -57,6 +57,7 @@ const rootEl = ref<HTMLElement | null>(null);
 const selectedSuggestionIndex = ref(0);
 const showSuggestions = ref(false);
 const appendEl = ref<HTMLElement | null>(null);
+const inputError = ref(false);
 
 const searchIconRight = computed(() => {
     const width = appendEl.value?.offsetWidth ?? 0;
@@ -94,8 +95,15 @@ function setQuery(queryNew: string) {
 }
 
 function submitSearch() {
+    if (!queryInput.value) {
+        inputError.value = true;
+        setTimeout(() => {
+            inputError.value = false;
+        }, 600);
+        return;
+    }
     clearTimer();
-    setQuery(queryInput.value ?? "");
+    setQuery(queryInput.value);
 }
 
 function getAutocompleteMatch(query: string): AutocompleteMatch | null {
@@ -318,7 +326,7 @@ defineExpose({
                 ref="inputField"
                 v-model="queryInput"
                 class="search-query form-control"
-                :class="{ 'has-search-icon': props.hasSearchButton }"
+                :class="{ 'has-search-icon': props.hasSearchButton, 'input-error': inputError }"
                 autocomplete="off"
                 :placeholder="placeholder"
                 data-description="filter text input"
@@ -386,6 +394,32 @@ defineExpose({
 
 .search-input-group {
     position: relative;
+}
+
+:deep(.input-error) {
+    border-color: var(--color-red-500) !important;
+    animation: shake 0.4s ease;
+
+    &:focus,
+    &:focus-visible {
+        box-shadow: 0 0 0 0.2rem rgb(from var(--color-red-500) r g b / 0.33);
+    }
+}
+
+@keyframes shake {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20% {
+        transform: translateX(-4px);
+    }
+    60% {
+        transform: translateX(4px);
+    }
+    80% {
+        transform: translateX(-2px);
+    }
 }
 
 .search-icon {

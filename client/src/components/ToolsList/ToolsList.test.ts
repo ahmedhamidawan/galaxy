@@ -103,8 +103,8 @@ describe("ToolsList", () => {
             router,
         });
 
-        // By default, no search text, fetch tools is still called but without a query
-        expect(fetchToolsMock).toHaveBeenCalledWith("");
+        // By default, no search text — no fetch on mount
+        expect(fetchToolsMock).not.toHaveBeenCalled();
 
         expect(wrapper.find("[data-description='toggle advanced search']").exists()).toBe(true);
 
@@ -164,7 +164,7 @@ describe("ToolsList", () => {
 
         const input = wrapper.find("input.search-query");
         await input.setValue('tag:collection_ops tag:"data cleanup"');
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -187,6 +187,7 @@ describe("ToolsList", () => {
 
         const input = wrapper.find("input.search-query");
         await input.setValue("tag:dat");
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         const suggestions = wrapper.find("[data-description='search-autocomplete']");
@@ -198,7 +199,7 @@ describe("ToolsList", () => {
 
         expect((input.element as HTMLInputElement).value).toBe('tag:"data cleanup" ');
 
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -240,13 +241,21 @@ describe("ToolsList", () => {
 
         routerPushMock.mockClear();
 
+        // Perform an initial search so ToolsListTable is mounted
+        const input = wrapper.find("input.search-query");
+        await input.setValue("trim");
+        await input.trigger("keydown", { key: "Enter" });
+        await flushPromises();
+
+        routerPushMock.mockClear();
+        fetchToolsMock.mockClear();
+
         wrapper.findComponent(ToolsListTable).vm.$emit("apply-filter", "tag", "data cleanup");
         await flushPromises();
 
-        const input = wrapper.find("input.search-query");
         expect((input.element as HTMLInputElement).value).toBe('tag:"data cleanup"');
 
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -301,7 +310,7 @@ describe("ToolsList", () => {
 
         const input = wrapper.find("input.search-query");
         await input.setValue(RAW_TAG_SEARCH);
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -324,7 +333,7 @@ describe("ToolsList", () => {
 
         const input = wrapper.find("input.search-query");
         await input.setValue(MIXED_TAG_SEARCH);
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -347,7 +356,7 @@ describe("ToolsList", () => {
 
         const input = wrapper.find("input.search-query");
         await input.setValue(MIXED_TAG_AND_ONTOLOGY_SEARCH);
-        vi.advanceTimersByTime(400);
+        await input.trigger("keydown", { key: "Enter" });
         await flushPromises();
 
         expect(routerPushMock).toHaveBeenLastCalledWith({
@@ -355,5 +364,53 @@ describe("ToolsList", () => {
             query: MIXED_TAG_AND_ONTOLOGY_FILTER_SETTINGS,
         });
         expect(fetchToolsMock).toHaveBeenLastCalledWith(MIXED_TAG_AND_ONTOLOGY_WHOOSH_QUERY);
+    });
+
+    it("shows empty prompt and does not fetch on mount with no query", async () => {
+        const wrapper = mount(ToolsList as object, {
+            localVue,
+            pinia,
+            router,
+        });
+
+        await flushPromises();
+
+        expect(fetchToolsMock).not.toHaveBeenCalled();
+        expect(wrapper.find(".tools-list-empty-prompt").exists()).toBe(true);
+        expect(wrapper.findComponent(ToolsListTable).exists()).toBe(false);
+    });
+
+    it("hides empty prompt and shows table after a search is performed", async () => {
+        const wrapper = mount(ToolsList as object, {
+            localVue,
+            pinia,
+            router,
+        });
+
+        expect(wrapper.find(".tools-list-empty-prompt").exists()).toBe(true);
+
+        const input = wrapper.find("input.search-query");
+        await input.setValue("bwa");
+        await input.trigger("keydown", { key: "Enter" });
+        await flushPromises();
+
+        expect(wrapper.find(".tools-list-empty-prompt").exists()).toBe(false);
+        expect(wrapper.findComponent(ToolsListTable).exists()).toBe(true);
+        expect(fetchToolsMock).toHaveBeenCalledWith("bwa");
+    });
+
+    it("adds input-error class on empty submit and does not fetch", async () => {
+        const wrapper = mount(ToolsList as object, {
+            localVue,
+            pinia,
+            router,
+        });
+
+        const input = wrapper.find("input.search-query");
+        await input.trigger("keydown", { key: "Enter" });
+        await flushPromises();
+
+        expect(input.classes()).toContain("input-error");
+        expect(fetchToolsMock).not.toHaveBeenCalled();
     });
 });

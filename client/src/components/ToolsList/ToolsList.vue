@@ -274,6 +274,8 @@ watch(
     { immediate: true },
 );
 
+const hasSearched = ref(false);
+
 const showFavorites = computed(() => FAVORITES_KEYS.includes(filterText.value.trim()));
 const favoritesButtonTitle = computed(() => (showFavorites.value ? "Hide favorite tools" : "Show favorite tools"));
 const translatedBooleanWhooshQuery = computed(() =>
@@ -315,6 +317,12 @@ const hasOwnerFilter = computed(() => {
 watch(
     () => whooshQuery.value,
     async (newQuery) => {
+        if (!newQuery) {
+            hasSearched.value = false;
+            router.push({ path: "/tools/list" });
+            return;
+        }
+        hasSearched.value = true;
         const routerParams: { path: string; query?: Record<string, string | string[]> } = { path: "/tools/list" };
         if (shouldPreserveRawSearchText.value) {
             routerParams.query = { search: filterText.value.trim() };
@@ -330,8 +338,11 @@ watch(
     },
 );
 
-// The component mounts with the whooshQuery already generated; perform fetch!
-searchTools(whooshQuery.value);
+// Only perform initial fetch if there is already a query (e.g. from URL params)
+if (whooshQuery.value) {
+    hasSearched.value = true;
+    searchTools(whooshQuery.value);
+}
 async function searchTools(query: string) {
     await toolStore.fetchTools(query);
     // Curated tags are fetched lazily out-of-band so tag chips on result cards
@@ -519,7 +530,12 @@ function onToggleView(newView: ListViewMode) {
         </div>
 
         <div class="tools-list-body">
+            <div v-if="!hasSearched" class="tools-list-empty-prompt">
+                <p v-localize>Enter a search term above to discover tools.</p>
+            </div>
+
             <ToolsListTable
+                v-else
                 :tools="itemsLoaded"
                 :loading="loading"
                 :has-owner-filter="hasOwnerFilter"
@@ -538,6 +554,16 @@ function onToggleView(newView: ListViewMode) {
         display: flex;
         flex-direction: column;
         overflow-y: auto;
+    }
+
+    .tools-list-empty-prompt {
+        align-items: center;
+        color: var(--color-grey-500);
+        display: flex;
+        flex: 1;
+        font-size: 1.1rem;
+        justify-content: center;
+        padding: 3rem 0;
     }
 }
 </style>
