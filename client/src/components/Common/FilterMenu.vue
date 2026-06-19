@@ -38,6 +38,8 @@ interface Props {
     placeholder?: string;
     /** The delay (in ms) before the main filter is applied */
     debounceDelay?: number;
+    /** Adds a search button, and requires pressing Enter to search */
+    hasSearchButton?: boolean;
     /** The `Filtering` class to use */
     filterClass: Filtering<any>;
     /** The current filter text in the main field */
@@ -216,6 +218,7 @@ function updateFilterText(newFilterText: string) {
             :value="props.filterText"
             :delay="props.debounceDelay"
             :loading="props.loading"
+            :has-search-button="props.hasSearchButton"
             :show-advanced="props.showAdvanced"
             :autocomplete-values="props.autocompleteValues"
             :autocomplete-prefix="props.autocompletePrefix"

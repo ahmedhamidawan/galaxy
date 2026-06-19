@@ -377,6 +377,7 @@ function onToggleView(newView: ListViewMode) {
                     name="Tools"
                     placeholder="search tools"
                     :debounce-delay="400"
+                    has-search-button
                     :filter-text.sync="filterText"
                     :filter-class="ToolFilters"
                     :autocomplete-values="tagAutocompleteValues"

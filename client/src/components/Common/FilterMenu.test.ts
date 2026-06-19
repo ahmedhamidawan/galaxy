@@ -282,10 +282,32 @@ describe("FilterMenu", () => {
         await expectCorrectEmits("deleted:any visible:any", HistoryFilters, false);
     });
 
-    /**
-     * Testing the default values of the filters defined in the HistoryFilters: Filtering
-     * class, ensuring the default values are reflected in the radio-group buttons
-     */
+    describe("hasSearchButton", () => {
+        beforeEach(async () => {
+            setUpWrapper("Test Items", "search test items", TestFilters);
+            await wrapper.setProps({ hasSearchButton: true });
+        });
+
+        it("does not emit 'update:filter-text' while typing in the search field", async () => {
+            const input = wrapper.find("[data-description='filter text input']");
+            const countBefore = wrapper.emitted()["update:filter-text"]?.length ?? 0;
+
+            await input.setValue("galaxy");
+
+            expect(wrapper.emitted()["update:filter-text"]?.length ?? 0).toBe(countBefore);
+        });
+
+        it("emits 'update:filter-text' when Enter is pressed in the search field", async () => {
+            const input = wrapper.find("[data-description='filter text input']");
+            await input.setValue("galaxy");
+            await input.trigger("keydown", { key: "Enter" });
+
+            const emitted = wrapper.emitted()["update:filter-text"];
+            expect(emitted).toBeTruthy();
+            expect(emitted?.[emitted.length - 1]?.[0]).toBe("galaxy");
+        });
+    });
+
     it("test compact menu with checkbox filters on WorkflowFilters", async () => {
         const myWorkflowFilters = getWorkflowFilters("my");
         setUpWrapper("Workflows", "search workflows", myWorkflowFilters);
