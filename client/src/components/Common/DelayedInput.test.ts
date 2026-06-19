@@ -1,9 +1,14 @@
 import { getLocalVue } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nextTick } from "vue";
 
 import DelayedInput from "./DelayedInput.vue";
+
+const SELECTORS = {
+    CLEAR_SEARCH: "[data-description='reset query']",
+    INPUT_COMPONENT: "[data-description='filter text input']",
+};
 
 const localVue = getLocalVue();
 
@@ -21,10 +26,69 @@ describe("DelayedInput.vue", () => {
     it("clears search and refocuses without error", async () => {
         const wrapper = mountDelayedInput();
 
-        await wrapper.find("button.search-clear").trigger("click");
+        await wrapper.find(SELECTORS.CLEAR_SEARCH).trigger("click");
         await nextTick();
 
-        expect(wrapper.find("input.g-form-input").exists()).toBe(true);
-        expect((wrapper.find("input.g-form-input").element as HTMLInputElement).value).toBe("");
+        expect(wrapper.find(SELECTORS.INPUT_COMPONENT).exists()).toBe(true);
+        expect((wrapper.find(SELECTORS.INPUT_COMPONENT).find("input").element as HTMLInputElement).value).toBe("");
+    });
+
+    it("emits 'input' and 'change' immediately when value is cleared", async () => {
+        const wrapper = mountDelayedInput({ delay: 1000 });
+        const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+        await input.setValue("");
+
+        expect(wrapper.emitted("input")?.[0]).toEqual([""]);
+        expect(wrapper.emitted("change")?.[0]).toEqual([""]);
+    });
+
+    describe("delayed emit", () => {
+        beforeEach(() => {
+            vi.useFakeTimers();
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it("emits 'input' and 'change' after the delay when a non-empty value is typed", async () => {
+            const wrapper = mountDelayedInput({ value: "", delay: 500 });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("galaxy");
+
+            // no emission yet — still within delay window
+            const countAfterType = wrapper.emitted("input")?.length ?? 0;
+
+            vi.advanceTimersByTime(500);
+            await nextTick();
+
+            const emissions = wrapper.emitted("input") ?? [];
+            expect(emissions.length).toBe(countAfterType + 1);
+            expect(emissions[emissions.length - 1]).toEqual(["galaxy"]);
+            const changeEmissions = wrapper.emitted("change") ?? [];
+            expect(changeEmissions[changeEmissions.length - 1]).toEqual(["galaxy"]);
+        });
+
+        it("debounces rapid input and only emits once after the delay", async () => {
+            const wrapper = mountDelayedInput({ value: "", delay: 500 });
+            const input = wrapper.find(SELECTORS.INPUT_COMPONENT).find("input");
+
+            await input.setValue("g");
+            await input.setValue("ga");
+            await input.setValue("gal");
+
+            const countBeforeFlush = wrapper.emitted("input")?.length ?? 0;
+
+            vi.advanceTimersByTime(500);
+            await nextTick();
+
+            const emissions = wrapper.emitted("input") ?? [];
+            expect(emissions.length).toBe(countBeforeFlush + 1);
+            expect(emissions[emissions.length - 1]).toEqual(["gal"]);
+            const changeEmissions = wrapper.emitted("change") ?? [];
+            expect(changeEmissions[changeEmissions.length - 1]).toEqual(["gal"]);
+        });
     });
 });
