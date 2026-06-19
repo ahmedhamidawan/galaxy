@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { faAngleDoubleDown, faAngleDoubleUp, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faAngleDoubleDown, faAngleDoubleUp, faSearch, faSpinner, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { watchImmediate } from "@vueuse/core";
 import { BInputGroup, BInputGroupAppend } from "bootstrap-vue";
@@ -19,6 +19,10 @@ interface Props {
     enableAdvanced?: boolean;
     autocompleteValues?: string[];
     autocompletePrefix?: string;
+    /** Adds a search button, and requires pressing Enter to search
+     * TODO: Doesn't do anything as of now, just dummy
+     */
+    hasSearchButton?: boolean;
 }
 
 interface AutocompleteMatch {
@@ -52,6 +56,12 @@ const inputField = ref<InstanceType<typeof GFormInput> | null>(null);
 const rootEl = ref<HTMLElement | null>(null);
 const selectedSuggestionIndex = ref(0);
 const showSuggestions = ref(false);
+const appendEl = ref<HTMLElement | null>(null);
+
+const searchIconRight = computed(() => {
+    const width = appendEl.value?.offsetWidth ?? 0;
+    return width ? `${width + 4}px` : "0.5rem";
+});
 
 function escapeRegExp(value: string) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -290,17 +300,26 @@ defineExpose({
 
 <template>
     <div ref="rootEl" class="delayed-input">
-        <BInputGroup>
+        <BInputGroup class="search-input-group">
             <GFormInput
                 ref="inputField"
                 v-model="queryInput"
                 class="search-query form-control"
+                :class="{ 'has-search-icon': props.hasSearchButton }"
                 autocomplete="off"
                 :placeholder="placeholder"
                 data-description="filter text input"
                 @keydown="onKeydown" />
 
-            <BInputGroupAppend>
+            <FontAwesomeIcon
+                v-if="props.hasSearchButton"
+                class="search-icon"
+                role="button"
+                :icon="faSearch"
+                :style="{ right: searchIconRight }"
+                fixed-width />
+
+            <BInputGroupAppend ref="appendEl">
                 <GButton
                     v-if="enableAdvanced"
                     tooltip
@@ -349,6 +368,25 @@ defineExpose({
 <style scoped lang="scss">
 .delayed-input {
     position: relative;
+}
+
+.search-input-group {
+    position: relative;
+}
+
+.search-icon {
+    color: var(--color-grey-500);
+    cursor: pointer;
+    pointer-events: auto;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    padding-right: 0.5rem;
+
+    &:hover {
+        color: var(--color-blue-600);
+    }
 }
 
 .autocomplete-suggestions {
