@@ -8,6 +8,7 @@ import type { JobBaseModel, JobFetchExtraParams, ShowFullJobResponse } from "@/a
 import { fetchJobs } from "@/api/jobs";
 import { jobsFilterParams, JobsFiltersById, JobsFiltersByName } from "@/components/Jobs/JobsFilters";
 import { useJobStore } from "@/stores/jobStore";
+import { useToolStore } from "@/stores/toolStore";
 import { useUserStore } from "@/stores/userStore";
 
 import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
@@ -32,6 +33,18 @@ const { currentUser, showToolNamesInJobPanel } = storeToRefs(userStore);
 const jobStore = useJobStore();
 const { sortedStoredJobs } = storeToRefs(jobStore);
 
+const toolStore = useToolStore();
+
+/** Name mode resolves names through the tool store, which nothing else may have loaded yet. */
+let toolsRequest: Promise<void> | undefined;
+function loadTools() {
+    toolsRequest ??= toolStore.fetchTools().catch((error) => {
+        toolsRequest = undefined;
+        throw error;
+    });
+    return toolsRequest;
+}
+
 const filterText = ref("");
 const showAdvanced = ref(false);
 const loading = ref(false);
@@ -50,8 +63,11 @@ const totalJobCount = ref<number | undefined>(undefined);
 const serverOffset = ref(0);
 
 /** Changing this key remounts the `ScrollList`, so it drops the jobs it has loaded and
- * requests the first page again with the new filters. */
-const filterKey = computed(() => filterText.value.trim());
+ * requests the first page again with the new filters. Name mode changes what the text matches. */
+const filterKey = computed(() => {
+    const text = filterText.value.trim();
+    return text ? `${showToolNamesInJobPanel.value ? "name" : "id"}:${text}` : "";
+});
 
 /** IDs of jobs fetched for the *current* filters. `sortedStoredJobs` is a global, id-keyed
  * cache shared across the whole app, so it can hold jobs from a previous filter. This set
@@ -80,7 +96,11 @@ function stopRetainingCurrentJobs() {
     unretainJobById.clear();
 }
 
+/** Bumped on every filter change, so pages requested under an earlier filter can be dropped. */
+let filterGeneration = 0;
+
 watch(filterKey, () => {
+    filterGeneration++;
     stopRetainingCurrentJobs();
     currentJobIds.value = new Set();
     serverOffset.value = 0;
@@ -88,6 +108,17 @@ watch(filterKey, () => {
 });
 
 onUnmounted(stopRetainingCurrentJobs);
+
+watch(
+    showToolNamesInJobPanel,
+    (showToolNames) => {
+        if (showToolNames) {
+            // Titles fall back to tool ids on failure; `loadJobs` reports errors for name searches.
+            loadTools().catch(() => {});
+        }
+    },
+    { immediate: true },
+);
 
 /** The jobs matching the current filters, kept up to date reactively as the store updates
  * (e.g. job state changes polled elsewhere), same as `sortedStoredInvocations` for invocations. */
@@ -123,6 +154,10 @@ async function loadJobs(_offset: number, limit: number) {
     if (!currentUser.value || currentUser.value.isAnonymous) {
         return { items: [], total: 0 };
     }
+    const requestGeneration = filterGeneration;
+    if (showToolNamesInJobPanel.value) {
+        await loadTools();
+    }
     const extraProps: JobFetchExtraParams = {
         user_id: currentUser.value.id,
         ...jobsFilterParams(filterText.value, showToolNamesInJobPanel.value),
@@ -135,6 +170,10 @@ async function loadJobs(_offset: number, limit: number) {
         [data, totalMatches] = await fetchJobs(serverOffset.value, limit, extraProps);
     } finally {
         loading.value = false;
+    }
+    if (requestGeneration !== filterGeneration) {
+        // Filters changed while loading; this page belongs to the discarded list.
+        return { items: [], total: 0 };
     }
     serverOffset.value += data.length;
 
@@ -193,6 +232,7 @@ const currentItemId = computed(() => {
             :prop-items="currentSortedJobs"
             :prop-total-count="totalJobCount"
             adjust-for-total-count-changes
+            retry-message="Clear your search or click the button at the bottom of the list to retry."
             name="job"
             name-plural="jobs"
             :load-disabled="!currentUser || currentUser.isAnonymous">

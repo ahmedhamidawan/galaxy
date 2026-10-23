@@ -4,12 +4,14 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { describe, expect, it, vi } from "vitest";
 
-import { useServerMock } from "@/api/client/__mocks__";
+import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
 import type { ShowFullJobResponse } from "@/api/jobs";
 import { MAX_CACHED_JOBS, useJobStore } from "@/stores/jobStore";
+import { type Tool, useToolStore } from "@/stores/toolStore";
 import { useUserStore } from "@/stores/userStore";
 
 import JobPanel from "./JobPanel.vue";
+import FilterMenu from "@/components/Common/FilterMenu.vue";
 
 const { server, http } = useServerMock();
 
@@ -62,9 +64,11 @@ describe("JobPanel", () => {
      * instead of sharing one `beforeEach`-mounted instance. `getLocalVue()` creates and activates
      * its own Pinia instance, so it must run before `useUserStore()` below -- otherwise the store
      * it sets state on isn't the one `mount()` ends up using. */
-    function mountJobPanel(): VueWrapper {
+    function mountJobPanel({ showToolNames = false } = {}): VueWrapper {
         const localVue = getLocalVue();
-        useUserStore().currentUser = getFakeRegisteredUser({ id: "fakeUser", email: "fake_user_email" });
+        const userStore = useUserStore();
+        userStore.currentUser = getFakeRegisteredUser({ id: "fakeUser", email: "fake_user_email" });
+        userStore.showToolNamesInJobPanel = showToolNames;
         return mount(JobPanel as object, { localVue, router });
     }
 
@@ -112,6 +116,116 @@ describe("JobPanel", () => {
         expect(wrapper.text()).toContain("cat1");
     });
 
+    it.each(["running", "finishing"] as const)("updates the state of a listed %s job", async (state) => {
+        server.use(
+            http.get("/api/jobs", ({ response }) => {
+                return response(200).json([buildJob({ id: "activeJob", state })], {
+                    headers: { total_matches: "1" },
+                });
+            }),
+            http.get("/api/jobs/{job_id}", ({ response }) => {
+                return response(200).json(buildJob({ id: "activeJob", state: "ok" }));
+            }),
+        );
+
+        const wrapper = mountJobPanel();
+        await flushPromises();
+        await scrollOnce();
+
+        expect(wrapper.find("#g-card-job-activeJob .job-state-badge").text()).toContain("ok");
+    });
+
+    it("refetches in name mode when the name toggle flips with filter text present", async () => {
+        const requests: URLSearchParams[] = [];
+        server.use(
+            http.get("/api/jobs", ({ request, response }) => {
+                requests.push(new URL(request.url).searchParams);
+                return response(200).json([], { headers: { total_matches: "0" } });
+            }),
+        );
+
+        const wrapper = mountJobPanel();
+        useToolStore().saveAllTools([{ id: "cat1", name: "Concatenate datasets" }] as unknown as Tool[]);
+        await flushPromises();
+        wrapper.findComponent(FilterMenu).vm.$emit("update:filterText", "concat");
+        await flushPromises();
+        await scrollOnce();
+        expect(requests.at(-1)?.get("search")).toBe("tool:concat");
+
+        useUserStore().showToolNamesInJobPanel = true;
+        await flushPromises();
+        await scrollOnce();
+
+        expect(requests.at(-1)?.getAll("tool_id")).toEqual(["cat1"]);
+    });
+
+    it("loads the tool store to search and title jobs by tool name", async () => {
+        const requests: URLSearchParams[] = [];
+        server.use(
+            http.untyped.get("/api/tools", () => {
+                return HttpResponse.json([{ id: "cat1", name: "Concatenate datasets" }]);
+            }),
+            http.get("/api/jobs", ({ request, response }) => {
+                requests.push(new URL(request.url).searchParams);
+                return response(200).json(
+                    [buildJob({ id: "catJob" }), buildJob({ id: "goneJob", tool_id: "uninstalled_tool" })],
+                    { headers: { total_matches: "2" } },
+                );
+            }),
+        );
+
+        const wrapper = mountJobPanel({ showToolNames: true });
+        await flushPromises();
+        wrapper.findComponent(FilterMenu).vm.$emit("update:filterText", "concat");
+        await flushPromises();
+        await scrollOnce();
+
+        expect(requests.at(-1)?.getAll("tool_id")).toEqual(["cat1"]);
+        expect(wrapper.find("#g-card-title-text-job-catJob").text()).toBe("Concatenate datasets");
+        expect(wrapper.find("#g-card-title-text-job-goneJob").text()).toBe("uninstalled_tool");
+    });
+
+    it("shows an invalid filter error with a clear-search hint", async () => {
+        const wrapper = mountJobPanel();
+        await flushPromises();
+        wrapper.findComponent(FilterMenu).vm.$emit("update:filterText", "xx:ss");
+        await flushPromises();
+        await scrollOnce();
+
+        const alert = wrapper.find(".alert-danger");
+        expect(alert.text()).toContain("Invalid filter(s) in query: xx");
+        expect(alert.text()).toContain("Clear your search or click the button at the bottom of the list to retry.");
+    });
+
+    it("drops a page that resolves after the filter changed", async () => {
+        let releaseStalePage: () => void = () => {};
+        const stalePage = new Promise<void>((resolve) => {
+            releaseStalePage = resolve;
+        });
+        server.use(
+            http.get("/api/jobs", async ({ request, response }) => {
+                if (new URL(request.url).searchParams.get("search") === "tool:cat1") {
+                    return response(200).json([], { headers: { total_matches: "0" } });
+                }
+                await stalePage;
+                return response(200).json([buildJob({ id: "staleJob", tool_id: "random_lines1" })], {
+                    headers: { total_matches: "1" },
+                });
+            }),
+        );
+
+        const wrapper = mountJobPanel();
+        await flushPromises();
+        loadMore?.();
+        wrapper.findComponent(FilterMenu).vm.$emit("update:filterText", "tool_id:cat1");
+        await flushPromises();
+        await scrollOnce();
+        releaseStalePage();
+        await flushPromises();
+
+        expect(wrapper.find("#g-card-job-staleJob").exists()).toBe(false);
+    });
+
     it("keeps showing more jobs once scrolling has loaded past jobStore's cache cap", async () => {
         // Pages through a pool larger than MAX_CACHED_JOBS, so later pages' `updateJob` calls
         // would evict earlier pages' jobs from the store if the panel didn't retain them
@@ -126,7 +240,7 @@ describe("JobPanel", () => {
                 const jobs = Array.from({ length: Math.min(limit, TOTAL_JOBS - offset) }, (_, i) =>
                     buildJob({
                         id: `job${offset + i}`,
-                        update_time: `2024-01-01T00:${String(offset + i).padStart(2, "0")}:00`,
+                        update_time: new Date(Date.UTC(2024, 0, 1) - (offset + i) * 60_000).toISOString(),
                     }),
                 );
                 return response(200).json(jobs, { headers: { total_matches: `${TOTAL_JOBS}` } });
@@ -142,6 +256,9 @@ describe("JobPanel", () => {
         }
 
         expect(wrapper.text()).toContain("All jobs loaded");
-        expect(wrapper.findAll(".job-card-title-text").length).toBe(TOTAL_JOBS);
+        const cardIds = wrapper.findAll(".g-card").map((card) => card.attributes("id"));
+        expect(cardIds.length).toBe(TOTAL_JOBS);
+        expect(cardIds[0]).toBe("g-card-job-job0");
+        expect(cardIds.at(-1)).toBe(`g-card-job-job${TOTAL_JOBS - 1}`);
     });
 });
