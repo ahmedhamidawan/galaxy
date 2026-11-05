@@ -766,12 +766,15 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         try:
             util.send_mail(self.app.config.email_from, email, f"{app_name} Password Reset", body, self.app.config)
         except Exception:
-            # Keep delivery errors private and invalidate the undelivered token.
             log.exception("Failed to send password reset email.")
             prt.expiration_time = now()
             trans.sa_session.add(prt)
             trans.sa_session.commit()
-            return
+            contact = getattr(self.app.config, "error_email_to", None)
+            contact_msg = f" Contact: {contact}." if contact else ""
+            raise exceptions.MessageException(
+                f"A password reset email could not be delivered.{contact_msg} Please contact an administrator."
+            )
         trans.log_event(f"User reset password: {email}")
         log.info("Sent a password reset email for user %s.", reset_user.id)
 
